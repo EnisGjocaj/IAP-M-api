@@ -20,7 +20,9 @@ const app = express();
 
 app.use(express.json()); // Middleware to parse JSON
 
-app.use(cors()); //
+app.use(cors({
+  origin: 'https://iap-m.com'
+}));
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
