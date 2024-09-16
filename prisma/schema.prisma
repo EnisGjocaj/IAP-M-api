@@ -1,0 +1,80 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // or "mysql" based on your database
+  url      = env("DATABASE_URL")
+}
+
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  surname   String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+
+  applications Application[]
+
+}
+
+
+model News {
+  id          Int      @id @default(autoincrement())
+  title       String
+  content     String
+  createdAt   DateTime @default(now())
+  imageUrl    String?  // Optional field for image URL
+}
+
+// model Application {
+//   id            Int      @id @default(autoincrement())
+//   userId    Int?
+//   name          String
+//   surname       String
+//   email         String   @unique
+//   createdAt     DateTime @default(now())
+//   type          TrainingType
+
+//   user      User?     @relation(fields: [userId], references: [id])
+// }
+
+
+enum TrainingType {
+  INFORMATION_SCIENCE
+  AGROBUSINESS
+  ACCOUNTING
+  MARKETING
+}
+
+
+model Application {
+  id            Int          @id @default(autoincrement())
+  userId        Int?
+  name          String
+  surname       String
+  email         String
+  createdAt     DateTime     @default(now())
+  type          TrainingType
+
+  user          User?        @relation(fields: [userId], references: [id])
+  
+  @@unique([email, type]) // Unique constraint on email and type combination
+}
+
+
+
+
+model TeamMember {
+  id          Int      @id @default(autoincrement())
+  fullName    String
+  role        String
+  description String
+  title       String
+  imagePath   String
+  createdAt   DateTime @default(now())
+}
