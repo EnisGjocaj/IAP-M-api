@@ -2,3 +2,53 @@ node_modules
 # Keep environment variables out of version control
 .env
 # "start": "npx nodemon --exec ts-node ./src/index.ts",
+
+# {
+#     "version": 2,
+#     "builds": [
+#       {
+#         "src": "dist/index.js",
+#         "use": "@vercel/node",
+#         "config": { "includeFiles": ["dist/**"] }
+#       }
+#     ],
+#     "routes": [
+#       {
+#         "src": "/(.*)",
+#         "dest": "dist/index.js",
+#         "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+#         "headers": {
+#           "Access-Control-Allow-Credentials": "true",
+#           "Access-Control-Allow-Origin": "*",
+#           "Access-Control-Allow-Methods": "GET,OPTIONS,PATCH,DELETE,POST,PUT",
+#           "Access-Control-Allow-Headers": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
+#         }
+#       }
+#     ]
+#   }
+
+
+
+
+
+# {
+#   "name": "backend",
+#   "version": "1.0.0",
+#   "description": "",
+#   "main": "index.js",
+#   "scripts": {
+#     "test": "echo \"Error: no test specified\" && exit 1",
+#     "start": "nodemon src/index.ts",
+#     "seed": "ts-node prisma/seed.ts",
+#     "build": "rimraf dist && tsc",
+#     "ts.check": "tsc --project tsconfig.json",
+#     "add-build": "git add dist"
+#   },
+#   "pre-commit": [
+#     "ts.check",
+#     "build",
+#     "add-build"
+#   ],
+#   "prisma": {
+#     "seed": "ts-node prisma/seed.ts"
+#   },
