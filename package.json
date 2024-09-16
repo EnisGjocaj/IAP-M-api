@@ -5,9 +5,17 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "npx nodemon --exec ts-node ./src/index.ts",
-    "seed": "ts-node prisma/seed.ts"
+    "start": "nodemon src/index.ts",
+    "seed": "ts-node prisma/seed.ts",
+    "build": "rimraf dist && tsc",
+    "ts.check": "tsc --project tsconfig.json",
+    "add-build": "git add dist"
   },
+  "pre-commit": [
+    "ts.check",
+    "build",
+    "add-build"
+  ],
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
