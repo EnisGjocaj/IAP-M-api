@@ -6,9 +6,7 @@ const newsRouter = express.Router();
 
 import upload from '../../multerConfig';
 
-import { v2 as cloudinary } from 'cloudinary';
-
-
+// Get all news
 newsRouter.get('/', async (req: Request, res: Response) => {
   try {
     const newsList = await newsService.getAllNews();
@@ -56,28 +54,6 @@ newsRouter.get('/:id', async (req: Request, res: Response) => {
 //   }
 // });
 
-// newsRouter.post('/', upload.single('image'), async (req, res) => {
-//   try {
-//     const { title, content } = req.body; // Get form fields from req.body
-//     const imageUrl = req.file ? `/uploads/${req.file.filename}` : ''; // Image file path
-
-//     // Log to verify form data and image
-//     console.log('Form Data:', { title, content, imageUrl });
-
-//     // Create the news item
-//     const newsItem = await newsService.createNews({
-//       title,
-//       content,
-//       imageUrl, // Pass the image URL to the service
-//     });
-
-//     return res.status(201).json(newsItem);
-//   } catch (error) {
-//     console.error('Error creating news:', error);
-//     return res.status(500).json({ message: 'Error creating news' });
-//   }
-// });
-
 newsRouter.post('/', upload.single('image'), async (req, res) => {
   try {
     const { title, content } = req.body; // Get form fields from req.body
@@ -99,6 +75,7 @@ newsRouter.post('/', upload.single('image'), async (req, res) => {
     return res.status(500).json({ message: 'Error creating news' });
   }
 });
+
 
 // Update news
 newsRouter.put('/:id', upload.single('image'), async (req: Request, res: Response) => {
