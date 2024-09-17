@@ -31,8 +31,9 @@ newsRouter.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Create news
-// newsRouter.post('/', upload.single('image'), async (req: Request, res: Response, next: NextFunction) => {
+
+
+// newsRouter.post('/', upload.single('image'), async (req, res) => {
 //   try {
 //     const { title, content } = req.body; // Get form fields from req.body
 //     const imageUrl = req.file ? `/uploads/${req.file.filename}` : ''; // Image file path
@@ -54,10 +55,10 @@ newsRouter.get('/:id', async (req: Request, res: Response) => {
 //   }
 // });
 
-newsRouter.post('/', upload.single('image'), async (req, res) => {
+newsRouter.post('/', async (req, res) => {
   try {
-    const { title, content } = req.body; // Get form fields from req.body
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : ''; // Image file path
+    const { title, content } = req.body;
+    const imageUrl = req.body.imageUrl || ''; // Image URL from Cloudinary if provided
 
     // Log to verify form data and image
     console.log('Form Data:', { title, content, imageUrl });
@@ -75,6 +76,7 @@ newsRouter.post('/', upload.single('image'), async (req, res) => {
     return res.status(500).json({ message: 'Error creating news' });
   }
 });
+
 
 
 // Update news
