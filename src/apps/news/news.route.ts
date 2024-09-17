@@ -4,16 +4,10 @@ import { NewsService } from './news.service';
 const newsService = new NewsService();
 const newsRouter = express.Router();
 
-// import upload from '../../multerConfig';
+import upload from '../../multerConfig';
 
 import { v2 as cloudinary } from 'cloudinary';
-import { uploadToCloudinary, upload } from '../../libraries/cloudinary';
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 newsRouter.get('/', async (req: Request, res: Response) => {
   try {
