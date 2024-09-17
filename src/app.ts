@@ -51,13 +51,16 @@ const uploadToCloudinary = (file: Express.Multer.File): Promise<UploadApiRespons
       },
       (error, result) => {
         if (error) {
+          console.error('Cloudinary upload error:', error);
           return reject(error);
         }
+        console.log('Cloudinary upload result:', result);
         resolve(result as UploadApiResponse); // Explicitly type result as UploadApiResponse
       }
     ).end(file.buffer);
   });
 };
+
 
 
 
