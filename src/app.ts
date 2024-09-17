@@ -17,14 +17,9 @@ import multer from "multer";
 import NodeCache from 'node-cache';
 
 import { TeamMemberService } from './apps/teamMember/teamMember.service';
-import { UploadApiResponse } from 'cloudinary';
 
 const cache = new NodeCache({ stdTTL: 60 * 5 });
 const teamMemberService = new TeamMemberService(); 
-
-import cloudinary from 'cloudinary';
-import { v2 as cloudinaryV2 } from 'cloudinary';
-import multerStorageCloudinary from 'multer-storage-cloudinary';
 
 const app = express();
 
@@ -32,78 +27,36 @@ app.use(express.json()); // Middleware to parse JSON
 
 app.use(cors());
 
-cloudinaryV2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+
+const uploadDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Multer storage configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname)); // Unique filename
+  },
 });
 
-const storage = multer.memoryStorage();
-
+// Multer middleware
 const upload = multer({ storage });
 
-const uploadToCloudinary = (file: Express.Multer.File): Promise<UploadApiResponse> => {
-  return new Promise((resolve, reject) => {
-    cloudinaryV2.uploader.upload_stream(
-      {
-        folder: 'uploads',
-        allowed_formats: ['jpg', 'png', 'jpeg'],
-      },
-      (error, result) => {
-        if (error) {
-          console.error('Cloudinary upload error:', error);
-          return reject(error);
-        }
-        console.log('Cloudinary upload result:', result);
-        resolve(result as UploadApiResponse); // Explicitly type result as UploadApiResponse
-      }
-    ).end(file.buffer);
-  });
-};
+// Serve static files from the uploads directory
+app.use('/uploads', express.static(uploadDir));
 
-
-
-
-
-// const uploadDir = path.join(__dirname, '../uploads');
-// if (!fs.existsSync(uploadDir)) {
-//   fs.mkdirSync(uploadDir, { recursive: true });
-// }
-
-// const storage = multer.diskStorage({
-//   destination: (req, file, cb) => {
-//     cb(null, uploadDir);
-//   },
-//   filename: (req, file, cb) => {
-//     cb(null, Date.now() + path.extname(file.originalname)); // Unique filename
-//   },
-// });
-
-// const upload = multer({ storage });
-
-// app.use('/uploads', express.static(uploadDir));
-
-// app.post('/api/upload', upload.single('file'), (req, res) => {
-//   if (!req.file) {
-//     return res.status(400).json({ error: 'No file uploaded' });
-//   }
-//   const fileUrl = `/uploads/${req.file.filename}`; 
-//   res.json({ url: fileUrl });
-// });
-
-app.post('/api/upload', upload.single('file'), async (req, res) => {
+// Example image upload route
+app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-
-  try {
-    const result = await uploadToCloudinary(req.file);
-    res.json({ url: result.secure_url }); // URL to access the image
-  } catch (error) {
-    res.status(500).json({ error: 'Error uploading file' });
-  }
+  const fileUrl = `/uploads/${req.file.filename}`; // URL to access the image
+  res.json({ url: fileUrl });
 });
-
 
 
 
