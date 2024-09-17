@@ -9,6 +9,12 @@ import upload from '../../multerConfig';
 // Get all news
 import { v2 as cloudinary } from 'cloudinary';
 
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
 newsRouter.get('/', async (req: Request, res: Response) => {
   try {
     const newsList = await newsService.getAllNews();
@@ -87,7 +93,10 @@ newsRouter.post('/', upload.single('image'), async (req, res) => {
 
     // If an image file is uploaded, upload it to Cloudinary
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path);
+      // Upload the image to Cloudinary
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: 'news_images', // Optional: organize images in a folder on Cloudinary
+      });
 
       // If the upload is successful, use the Cloudinary URL as the imageUrl
       imageUrl = result.secure_url;
