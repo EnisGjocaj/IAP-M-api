@@ -6,6 +6,8 @@ import path from 'path';
 import { MediaService } from '../media/media.service';
 import upload from '../../multerConfig';
 
+import { v2 as cloudinary } from 'cloudinary';
+
 const teamMemberService = new TeamMemberService();
 const teamMemberRouter = express.Router();
 
@@ -39,30 +41,38 @@ teamMemberRouter.get('/:id', async (req: Request, res: Response) => {
 
 teamMemberRouter.post('/', upload.single('image'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-      const { fullName, role, description, title } = req.body; // Form fields
-      const imagePath = req.file ? `/uploads/${req.file.filename}` : ''; // Image file path
+    const { fullName, role, description, title } = req.body; // Form fields
 
-      // Log to verify form data and image
-      console.log('Form Data:', { fullName, role, description, title, imagePath });
+    // Initialize imagePath to an empty string
+    let imagePath = '';
 
-      // You can use the media service here to handle file operations (optional)
-      if (req.file) {
-          await mediaService.uploadFile(req.file);
-      }
+    // If an image file is uploaded, upload it to Cloudinary
+    if (req.file) {
+      // Upload the file to Cloudinary
+      const result = await cloudinary.uploader.upload(req.file.path);
+      
+      // If the upload is successful, use the Cloudinary URL as the imagePath
+      imagePath = result.secure_url;
+    }
 
-      // Now create the team member with the file path
-      const teamMember = await teamMemberService.createTeamMember({
-          fullName,
-          role,
-          description,
-          title,
-          imagePath, // Associate the image path with the team member
-      });
+    // Log to verify form data and image URL
+    console.log('Form Data:', { fullName, role, description, title, imagePath });
 
-      return res.status(teamMember.statusCode).json(teamMember.message);
+    // Create the team member with the Cloudinary image URL
+    const teamMemberService = new TeamMemberService();
+    const teamMember = await teamMemberService.createTeamMember({
+      fullName,
+      role,
+      description,
+      title,
+      imagePath, // Associate the Cloudinary URL with the team member
+    });
+
+    // Respond with the created team member's status and message
+    return res.status(teamMember.statusCode).json(teamMember.message);
   } catch (error) {
-      console.error('Error creating team member:', error);
-      return res.status(500).json({ message: 'Error creating team member' });
+    console.error('Error creating team member:', error);
+    return res.status(500).json({ message: 'Error creating team member' });
   }
 });
   

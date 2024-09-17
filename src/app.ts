@@ -18,6 +18,16 @@ import NodeCache from 'node-cache';
 
 import { TeamMemberService } from './apps/teamMember/teamMember.service';
 
+import cloudinary from 'cloudinary';
+
+// Configure Cloudinary
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+
 const cache = new NodeCache({ stdTTL: 60 * 5 });
 const teamMemberService = new TeamMemberService(); 
 
@@ -53,13 +63,23 @@ const upload = multer({ storage });
 app.use('/uploads', express.static(uploadDir));
 
 // Example image upload route
+// Example image upload route with Cloudinary
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  const fileUrl = `/uploads/${req.file.filename}`; // URL to access the image
-  res.json({ url: fileUrl });
+
+  // Upload the file to Cloudinary
+  cloudinary.v2.uploader.upload(req.file.path, (error, result) => {
+    if (error || !result) {
+      return res.status(500).json({ error: 'Failed to upload to Cloudinary' });
+    }
+
+    // Return the URL of the uploaded image
+    res.json({ url: result.secure_url });
+  });
 });
+
 
 
 
