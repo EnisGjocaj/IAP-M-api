@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node dist/index.js",
     "seed": "ts-node prisma/seed.ts",
-    "build": "rimraf dist && prisma generate && tsc", 
+    "build": "rimraf dist && prisma generate && tsc",
     "vercel-build": "echo hello"
   },
   "pre-commit": [
@@ -32,6 +32,7 @@
     "express-validator": "^7.2.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
+    "node-cache": "^5.1.2",
     "nodemailer": "^6.9.15",
     "prisma": "^5.19.1"
   },
