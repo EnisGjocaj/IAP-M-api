@@ -25,10 +25,7 @@ const app = express();
 
 app.use(express.json()); // Middleware to parse JSON
 
-app.use(cors({
-  origin: 'https://iap-m.com', // Allow requests from this domain
-
-}));
+app.use(cors());
 
 
 const uploadDir = path.join(__dirname, '../uploads');
