@@ -87,29 +87,16 @@ newsRouter.get('/:id', async (req: Request, res: Response) => {
 newsRouter.post('/', upload.single('image'), async (req, res) => {
   try {
     const { title, content } = req.body; // Get form fields from req.body
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : ''; // Image file path
 
-    // Initialize imageUrl to an empty string
-    let imageUrl = '';
-
-    // If an image file is uploaded, upload it to Cloudinary
-    if (req.file) {
-      // Upload the image to Cloudinary
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: 'news_images', // Optional: organize images in a folder on Cloudinary
-      });
-
-      // If the upload is successful, use the Cloudinary URL as the imageUrl
-      imageUrl = result.secure_url;
-    }
-
-    // Log to verify form data and image URL
+    // Log to verify form data and image
     console.log('Form Data:', { title, content, imageUrl });
 
-    // Create the news item with the Cloudinary image URL
+    // Create the news item
     const newsItem = await newsService.createNews({
       title,
       content,
-      imageUrl, // Pass the Cloudinary URL to the service
+      imageUrl, // Pass the image URL to the service
     });
 
     return res.status(201).json(newsItem);
