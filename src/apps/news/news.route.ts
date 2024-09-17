@@ -4,10 +4,10 @@ import { NewsService } from './news.service';
 const newsService = new NewsService();
 const newsRouter = express.Router();
 
-import upload from '../../multerConfig';
+// import upload from '../../multerConfig';
 
-// Get all news
 import { v2 as cloudinary } from 'cloudinary';
+import { uploadToCloudinary, upload } from '../../libraries/cloudinary';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -84,23 +84,21 @@ newsRouter.get('/:id', async (req: Request, res: Response) => {
 //   }
 // });
 
-newsRouter.post('/', upload.single('image'), async (req, res) => {
+newsRouter.post('/', upload.single('image'), uploadToCloudinary, async (req: Request, res: Response) => {
   try {
     const { title, content } = req.body; // Get form fields from req.body
 
-    // Initialize imageUrl to an empty string
-    let imageUrl = '';
-
-    // If an image file is uploaded, upload it to Cloudinary
-    if (req.file) {
-      // Upload the image to Cloudinary
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: 'news_images', // Optional: organize images in a folder on Cloudinary
-      });
-
-      // If the upload is successful, use the Cloudinary URL as the imageUrl
-      imageUrl = result.secure_url;
+    // Get the Cloudinary URL from the middleware
+    const cloudinaryUrls = req.body.cloudinaryUrls;
+    
+    // If there's no Cloudinary URL, handle the error
+    if (!cloudinaryUrls || cloudinaryUrls.length === 0) {
+      console.error('No Cloudinary URL found.');
+      return res.status(500).send('Error uploading image');
     }
+
+    // Use the first URL as the image URL for this news item
+    const imageUrl = cloudinaryUrls[0];
 
     // Log to verify form data and image URL
     console.log('Form Data:', { title, content, imageUrl });

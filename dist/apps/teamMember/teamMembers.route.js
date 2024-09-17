@@ -17,6 +17,7 @@ const express_1 = __importDefault(require("express"));
 const teamMember_service_1 = require("./teamMember.service");
 const media_service_1 = require("../media/media.service");
 const multerConfig_1 = __importDefault(require("../../multerConfig"));
+const cloudinary_1 = require("cloudinary");
 const teamMemberService = new teamMember_service_1.TeamMemberService();
 const teamMemberRouter = express_1.default.Router();
 const mediaService = new media_service_1.MediaService();
@@ -48,21 +49,27 @@ teamMemberRouter.get('/:id', (req, res) => __awaiter(void 0, void 0, void 0, fun
 teamMemberRouter.post('/', multerConfig_1.default.single('image'), (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { fullName, role, description, title } = req.body; // Form fields
-        const imagePath = req.file ? `/uploads/${req.file.filename}` : ''; // Image file path
-        // Log to verify form data and image
-        console.log('Form Data:', { fullName, role, description, title, imagePath });
-        // You can use the media service here to handle file operations (optional)
+        // Initialize imagePath to an empty string
+        let imagePath = '';
+        // If an image file is uploaded, upload it to Cloudinary
         if (req.file) {
-            yield mediaService.uploadFile(req.file);
+            // Upload the file to Cloudinary
+            const result = yield cloudinary_1.v2.uploader.upload(req.file.path);
+            // If the upload is successful, use the Cloudinary URL as the imagePath
+            imagePath = result.secure_url;
         }
-        // Now create the team member with the file path
+        // Log to verify form data and image URL
+        console.log('Form Data:', { fullName, role, description, title, imagePath });
+        // Create the team member with the Cloudinary image URL
+        const teamMemberService = new teamMember_service_1.TeamMemberService();
         const teamMember = yield teamMemberService.createTeamMember({
             fullName,
             role,
             description,
             title,
-            imagePath, // Associate the image path with the team member
+            imagePath, // Associate the Cloudinary URL with the team member
         });
+        // Respond with the created team member's status and message
         return res.status(teamMember.statusCode).json(teamMember.message);
     }
     catch (error) {

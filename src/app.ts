@@ -34,6 +34,7 @@ const teamMemberService = new TeamMemberService();
 const app = express();
 
 app.use(express.json()); // Middleware to parse JSON
+app.use(express.urlencoded({ extended: true }));
 
 app.use(cors({
   origin: 'https://iap-m.com', // Allow requests from this domain
