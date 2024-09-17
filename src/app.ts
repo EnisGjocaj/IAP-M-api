@@ -31,6 +31,37 @@ app.use(cors({
 }));
 
 
+const uploadDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Multer storage configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname)); // Unique filename
+  },
+});
+
+// Multer middleware
+const upload = multer({ storage });
+
+// Serve static files from the uploads directory
+app.use('/uploads', express.static(uploadDir));
+
+// Example image upload route
+app.post('/api/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  const fileUrl = `/uploads/${req.file.filename}`; // URL to access the image
+  res.json({ url: fileUrl });
+});
+
+
 
 
 
@@ -51,31 +82,32 @@ preloadCache();
 setInterval(preloadCache, 5 * 60 * 1000);
 
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      const uploadDir = path.join(__dirname, '../uploads');
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir);
-      }
-      cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-      cb(null, Date.now() + path.extname(file.originalname));
-    },
-  });
+// const storage = multer.diskStorage({
+//     destination: (req, file, cb) => {
+//       const uploadDir = path.join(__dirname, '../uploads');
+//       if (!fs.existsSync(uploadDir)) {
+//         fs.mkdirSync(uploadDir);
+//       }
+//       cb(null, uploadDir);
+//     },
+//     filename: (req, file, cb) => {
+//       cb(null, Date.now() + path.extname(file.originalname));
+//     },
+//   });
   
-  const upload = multer({ storage });
+//   const upload = multer({ storage });
   
-  app.post('/api/upload',  upload.single('file'), (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-    const fileUrl = `/uploads/${req.file.filename}`;
-    res.json({ url: fileUrl });
-  });
+//   app.post('/api/upload',  upload.single('file'), (req, res) => {
+//     if (!req.file) {
+//       return res.status(400).json({ error: 'No file uploaded' });
+//     }
+//     const fileUrl = `/uploads/${req.file.filename}`;
+//     res.json({ url: fileUrl });
+//   });
   
-  // app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-  app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+//   // app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+//   app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 
   function cacheMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
     const key = req.originalUrl; // use the request URL as the cache key
