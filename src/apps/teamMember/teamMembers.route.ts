@@ -6,6 +6,12 @@ import path from 'path';
 import { MediaService } from '../media/media.service';
 import upload from '../../multerConfig';
 
+
+import NodeCache from 'node-cache';
+
+const cache = new NodeCache({ stdTTL: 60 * 5 });
+
+
 const teamMemberService = new TeamMemberService();
 const teamMemberRouter = express.Router();
 
@@ -13,10 +19,37 @@ const mediaService = new MediaService();
 
 
 // Get all team members
+// teamMemberRouter.get('/', async (req: Request, res: Response) => {
+//   try {
+//     const teamMembers = await teamMemberService.getAllTeamMembers();
+//     return res.status(teamMembers.statusCode).json(teamMembers.message);
+//   } catch (error) {
+//     console.error('Error fetching team members:', error);
+//     return res.status(500).json({ message: 'Internal server error' });
+//   }
+// });
+
+
+
 teamMemberRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const teamMembers = await teamMemberService.getAllTeamMembers();
-    return res.status(teamMembers.statusCode).json(teamMembers.message);
+    const cacheKey = '/team-members';
+    const cachedData = cache.get(cacheKey);
+    
+    if (cachedData) {
+      // Return cached data immediately
+      res.json(cachedData);
+      
+      // Fetch fresh data asynchronously and update cache
+      const freshData = await teamMemberService.getAllTeamMembers();
+      cache.set(cacheKey, freshData.message);
+      console.log("Cache updated with fresh data.");
+    } else {
+      // No cache available, fetch data and cache it
+      const teamMembers = await teamMemberService.getAllTeamMembers();
+      cache.set(cacheKey, teamMembers.message);
+      res.json(teamMembers.message);
+    }
   } catch (error) {
     console.error('Error fetching team members:', error);
     return res.status(500).json({ message: 'Internal server error' });

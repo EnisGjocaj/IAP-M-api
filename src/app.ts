@@ -64,9 +64,13 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
 async function preloadCache() {
   try {
-    const teamMembersData = await teamMemberService.getAllTeamMembers(); // Fetch team members
-    cache.set('/team-members', teamMembersData.message); // Cache the data
-    console.log("Team members data preloaded into cache.");
+    const teamMembersData = await teamMemberService.getAllTeamMembers();
+    if (teamMembersData.statusCode === 200) {
+      cache.set('/team-members', teamMembersData.message);
+      console.log("Team members data preloaded into cache.");
+    } else {
+      console.log("Error during cache preloading: ", teamMembersData.message);
+    }
   } catch (error) {
     console.error("Error preloading team members:", error);
   }
@@ -106,23 +110,26 @@ setInterval(preloadCache, 5 * 60 * 1000);
 //   app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 
-  function cacheMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
-    const key = req.originalUrl; // use the request URL as the cache key
-    const cachedResponse = cache.get(key);
+function cacheMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const key = req.originalUrl; // Use request URL as the cache key
+  const cachedResponse = cache.get(key);
   
-    if (cachedResponse) {
-      return res.json(cachedResponse); // Return the cached response if available
-    } else {
-      const originalJson = res.json.bind(res); // Store the original res.json method
-  
-      res.json = (body: any) => {
-        cache.set(key, body); // Cache the response
-        return originalJson(body); // Ensure the overridden method returns the original response
-      };
-  
-      next(); // Continue to the next middleware if no cached response
-    }
+  if (cachedResponse) {
+    console.log("Serving cached data for: ", key);
+    return res.json(cachedResponse); // Return cached response if available
+  } else {
+    console.log("No cache found, fetching data from DB for: ", key);
+    const originalJson = res.json.bind(res);
+    
+    res.json = (body: any) => {
+      console.log("Caching new response for: ", key);
+      cache.set(key, body); // Cache the response
+      return originalJson(body); // Return the response to client
+    };
+    next(); // Continue to the next middleware if no cached response
   }
+}
+
   
 // Register the routes
 app.use('/news', cacheMiddleware, newsRouter);
