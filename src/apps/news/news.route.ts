@@ -1,16 +1,46 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { NewsService } from './news.service';
 
+import NodeCache from 'node-cache';
+
+const cache = new NodeCache({ stdTTL: 60 * 5 });
+
 const newsService = new NewsService();
 const newsRouter = express.Router();
 
 import upload from '../../multerConfig';
 
 // Get all news
+// newsRouter.get('/', async (req: Request, res: Response) => {
+//   try {
+//     const newsList = await newsService.getAllNews();
+//     return res.status(200).json(newsList);
+//   } catch (error) {
+//     console.error('Error fetching news:', error);
+//     return res.status(500).json({ message: 'Internal server error' });
+//   }
+// });
+
+
 newsRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const newsList = await newsService.getAllNews();
-    return res.status(200).json(newsList);
+    const cacheKey = '/news'; // Unique key for the news data
+    const cachedData = cache.get(cacheKey);
+
+    if (cachedData) {
+      // Return cached data immediately
+      res.json(cachedData);
+
+      // Fetch fresh data asynchronously and update cache
+      const freshNews = await newsService.getAllNews();
+      cache.set(cacheKey, freshNews);
+      console.log("Cache updated with fresh news data.");
+    } else {
+      // No cache available, fetch data from DB and cache it
+      const newsList = await newsService.getAllNews();
+      cache.set(cacheKey, newsList); // Cache the news data
+      res.json(newsList); // Return news to client
+    }
   } catch (error) {
     console.error('Error fetching news:', error);
     return res.status(500).json({ message: 'Internal server error' });

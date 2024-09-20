@@ -17,9 +17,13 @@ import multer from "multer";
 import NodeCache from 'node-cache';
 
 import { TeamMemberService } from './apps/teamMember/teamMember.service';
+import { NewsService } from './apps/news/news.service';
 
 const cache = new NodeCache({ stdTTL: 60 * 5 });
+
 const teamMemberService = new TeamMemberService(); 
+const newsService = new NewsService();
+
 
 const app = express();
 
@@ -64,12 +68,23 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
 async function preloadCache() {
   try {
+
     const teamMembersData = await teamMemberService.getAllTeamMembers();
     if (teamMembersData.statusCode === 200) {
       cache.set('/team-members', teamMembersData.message);
       console.log("Team members data preloaded into cache.");
     } else {
       console.log("Error during cache preloading: ", teamMembersData.message);
+    }
+
+
+
+    const newsData = await newsService.getAllNews();
+    if (newsData) {
+      cache.set('/news', newsData); // Cache news articles
+      console.log("News data preloaded into cache.");
+    } else {
+      console.log("Error during cache preloading for news.");
     }
   } catch (error) {
     console.error("Error preloading team members:", error);
