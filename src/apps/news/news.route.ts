@@ -61,6 +61,7 @@ newsRouter.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
+
 // Create news
 // newsRouter.post('/', upload.single('image'), async (req: Request, res: Response, next: NextFunction) => {
 //   try {
