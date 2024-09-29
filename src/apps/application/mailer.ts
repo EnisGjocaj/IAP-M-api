@@ -44,13 +44,17 @@ interface MailOptions {
 
 // Create a transporter for sending emails using Hostpoint's SMTP settings
 const transporter = nodemailer.createTransport({
-  host: 'asmtp.mail.hostpoint.ch',  // Hostpoint's SMTP server (you might need to confirm this)
+  host: 'smtp.hostpoint.ch',  // Hostpoint's SMTP server (you might need to confirm this)
   port: 465,  // 587 is typically used for TLS
   secure: true,  // Use TLS but not SSL, false means STARTTLS
   auth: {
     user: process.env.EMAIL_USER,  // Your Hostpoint email, e.g., ip-m.com
     pass: process.env.EMAIL_PASS,  // Your Hostpoint email password, e.g.
   },
+  tls: {
+    rejectUnauthorized: false,  // Allow self-signed certificates (if needed)
+  },
+  
   logger: true,  
   debug: true,
 });
