@@ -1,6 +1,8 @@
 # Keep environment variables out of version control
 .env
 
+/src/apps/application/mailer.ts
+
 
 # "start": "npx nodemon --exec ts-node ./src/index.ts",
 
