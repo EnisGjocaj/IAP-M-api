@@ -14,18 +14,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendApplicationEmail = void 0;
 const nodemailer_1 = __importDefault(require("nodemailer"));
-// Create a transporter for sending emails using Gmail
+// Create a transporter for sending emails using Hostpoint's SMTP settings
 const transporter = nodemailer_1.default.createTransport({
-    service: 'gmail',
+    host: 'smtp.hostpoint.ch', // Hostpoint's SMTP server (you might need to confirm this)
+    port: 465, // 587 is typically used for TLS
+    secure: true, // Use TLS but not SSL, false means STARTTLS
     auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_PASS,
+        user: process.env.EMAIL_USER, // Your Hostpoint email, e.g., ip-m.com
+        pass: process.env.EMAIL_PASS, // Your Hostpoint email password, e.g.
     },
+    tls: {
+        rejectUnauthorized: false, // Allow self-signed certificates (if needed)
+    },
+    logger: true,
+    debug: true,
 });
 // Function to send an application email
 const sendApplicationEmail = (toEmail, name, type) => __awaiter(void 0, void 0, void 0, function* () {
     const mailOptions = {
-        from: process.env.GMAIL_USER,
+        from: process.env.EMAIL_USER, // From the Hostpoint email
         to: toEmail,
         subject: 'Application Received',
         text: `Dear ${name},\n\nThank you for applying to our ${type} program. We have received your application and will get back to you shortly.\n\nBest regards,\nThe Team`,

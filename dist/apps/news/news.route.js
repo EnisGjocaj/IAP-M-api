@@ -14,14 +14,39 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const news_service_1 = require("./news.service");
+const node_cache_1 = __importDefault(require("node-cache"));
+const cache = new node_cache_1.default({ stdTTL: 60 * 5 });
 const newsService = new news_service_1.NewsService();
 const newsRouter = express_1.default.Router();
 const multerConfig_1 = __importDefault(require("../../multerConfig"));
 // Get all news
+// newsRouter.get('/', async (req: Request, res: Response) => {
+//   try {
+//     const newsList = await newsService.getAllNews();
+//     return res.status(200).json(newsList);
+//   } catch (error) {
+//     console.error('Error fetching news:', error);
+//     return res.status(500).json({ message: 'Internal server error' });
+//   }
+// });
 newsRouter.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const newsList = yield newsService.getAllNews();
-        return res.status(200).json(newsList);
+        const cacheKey = '/news'; // Unique key for the news data
+        const cachedData = cache.get(cacheKey);
+        if (cachedData) {
+            // Return cached data immediately
+            res.json(cachedData);
+            // Fetch fresh data asynchronously and update cache
+            const freshNews = yield newsService.getAllNews();
+            cache.set(cacheKey, freshNews);
+            console.log("Cache updated with fresh news data.");
+        }
+        else {
+            // No cache available, fetch data from DB and cache it
+            const newsList = yield newsService.getAllNews();
+            cache.set(cacheKey, newsList); // Cache the news data
+            res.json(newsList); // Return news to client
+        }
     }
     catch (error) {
         console.error('Error fetching news:', error);
@@ -43,7 +68,25 @@ newsRouter.get('/:id', (req, res) => __awaiter(void 0, void 0, void 0, function*
     }
 }));
 // Create news
-newsRouter.post('/', multerConfig_1.default.single('image'), (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+// newsRouter.post('/', upload.single('image'), async (req: Request, res: Response, next: NextFunction) => {
+//   try {
+//     const { title, content } = req.body; // Get form fields from req.body
+//     const imageUrl = req.file ? `/uploads/${req.file.filename}` : ''; // Image file path
+//     // Log to verify form data and image
+//     console.log('Form Data:', { title, content, imageUrl });
+//     // Create the news item
+//     const newsItem = await newsService.createNews({
+//       title,
+//       content,
+//       imageUrl, // Pass the image URL to the service
+//     });
+//     return res.status(201).json(newsItem);
+//   } catch (error) {
+//     console.error('Error creating news:', error);
+//     return res.status(500).json({ message: 'Error creating news' });
+//   }
+// });
+newsRouter.post('/', multerConfig_1.default.single('image'), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { title, content } = req.body; // Get form fields from req.body
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : ''; // Image file path
