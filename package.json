@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node dist/index.js",
     "seed": "ts-node prisma/seed.ts",
-    "build": "rimraf dist && prisma generate && tsc",
+    "build": "rimraf dist && prisma generate && tsc && ls -la dist",
     "vercel-build": "echo hello"
   },
   "pre-commit": [
