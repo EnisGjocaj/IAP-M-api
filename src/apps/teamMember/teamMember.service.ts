@@ -28,18 +28,31 @@ export class TeamMemberService {
   }
 
 
-  async createTeamMember(data: { fullName: string; role: string; description: string; title: string; imagePath?: string }) {
+  async createTeamMember(data: { 
+    fullName: string; 
+    role: string; 
+    description: string; 
+    title: string; 
+    imagePath?: string;
+    cvPath?: string;
+    linkedinUrl?: string;
+    twitterUrl?: string;
+    facebookUrl?: string;
+  }) {
     try {
-        // Log data to ensure correct values are passed
         console.log(data);
 
         const newTeamMember = await prisma.teamMember.create({
             data: {
-                fullName: data.fullName,  // Ensure this is a string value
-                role: data.role || '',  // Fallback to empty string if undefined
-                description: data.description || '',  // Fallback
-                title: data.title || '',  // Fallback
-                imagePath: data.imagePath ?? '',  // Handle optional imagePath correctly
+                fullName: data.fullName,
+                role: data.role || '',
+                description: data.description || '',
+                title: data.title || '',
+                imagePath: data.imagePath ?? '',
+                cvPath: data.cvPath ?? '',
+                linkedinUrl: data.linkedinUrl ?? '',
+                twitterUrl: data.twitterUrl ?? '',
+                facebookUrl: data.facebookUrl ?? '',
             },
         });
         return { statusCode: 201, message: newTeamMember };

@@ -67,8 +67,26 @@ model Application {
   @@unique([email, type]) // Unique constraint on email and type combination
 }
 
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+}
 
-
+model JobListing {
+  id          Int       @id @default(autoincrement())
+  title       String
+  company     String
+  location    String
+  type        JobType
+  salary      String
+  description String    @db.Text
+  requirements String[] @default([])
+  posted      DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isActive    Boolean   @default(true)
+}
 
 model TeamMember {
   id          Int      @id @default(autoincrement())
@@ -77,5 +95,11 @@ model TeamMember {
   description String
   title       String
   imagePath   String
+
+  cvPath      String?
+  linkedinUrl String?
+  twitterUrl  String?
+  facebookUrl String?
+
   createdAt   DateTime @default(now())
 }

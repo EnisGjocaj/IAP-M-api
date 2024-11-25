@@ -17,7 +17,9 @@
     "baseUrl": ".",
     "paths": {
         "*": ["node_modules/*", "src/types/*"]
-    }                      /* Skip type checking .d.ts files that are included with TypeScript. */
+    },
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true                      /* Skip type checking .d.ts files that are included with TypeScript. */
                                /* Skip type checking all .d.ts files. */
   },
   "include": ["./src/**/*"]

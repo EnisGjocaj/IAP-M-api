@@ -7,6 +7,7 @@ import userRouter from './apps/users/users.route';
 import manageUserRouter from './apps/manageUsers/manageUsers.route';
 
 import dashboardRouter from './apps/dashboard/dashboard.route';
+import jobListingRouter from './apps/jobListing/jobListing.route';
 
 import path from 'path';
 
@@ -23,7 +24,6 @@ const cache = new NodeCache({ stdTTL: 60 * 5 });
 
 const teamMemberService = new TeamMemberService(); 
 const newsService = new NewsService();
-
 
 const app = express();
 
@@ -65,7 +65,6 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
 
 
-
 async function preloadCache() {
   try {
 
@@ -76,8 +75,6 @@ async function preloadCache() {
     } else {
       console.log("Error during cache preloading: ", teamMembersData.message);
     }
-
-
 
     const newsData = await newsService.getAllNews();
     if (newsData) {
@@ -97,58 +94,46 @@ preloadCache();
 // Refresh the cache every 5 minutes
 setInterval(preloadCache, 5 * 60 * 1000);
 
-
-// const storage = multer.diskStorage({
-//     destination: (req, file, cb) => {
-//       const uploadDir = path.join(__dirname, '../uploads');
-//       if (!fs.existsSync(uploadDir)) {
-//         fs.mkdirSync(uploadDir);
-//       }
-//       cb(null, uploadDir);
-//     },
-//     filename: (req, file, cb) => {
-//       cb(null, Date.now() + path.extname(file.originalname));
-//     },
-//   });
-  
-//   const upload = multer({ storage });
-  
-//   app.post('/api/upload',  upload.single('file'), (req, res) => {
-//     if (!req.file) {
-//       return res.status(400).json({ error: 'No file uploaded' });
-//     }
-//     const fileUrl = `/uploads/${req.file.filename}`;
-//     res.json({ url: fileUrl });
-//   });
-  
-//   // app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-//   app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-
+// Function to invalidate related cache entries
+function invalidateRelatedCache(path: string) {
+  const keys = cache.keys();
+  const relatedKeys = keys.filter(key => key.includes(path));
+  console.log('Invalidating cache keys:', relatedKeys);
+  relatedKeys.forEach(key => cache.del(key));
+}
 
 function cacheMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const key = req.originalUrl; // Use request URL as the cache key
+  // Skip caching for non-GET requests
+  if (req.method !== 'GET') {
+    // Invalidate related cache on modifications
+    const basePath = req.path.split('/')[1]; // e.g., 'job-listings' from '/job-listings/123'
+    invalidateRelatedCache(basePath);
+    return next();
+  }
+
+  const key = req.originalUrl;
   const cachedResponse = cache.get(key);
   
   if (cachedResponse) {
     console.log("Serving cached data for: ", key);
-    return res.json(cachedResponse); // Return cached response if available
+    return res.json(cachedResponse);
   } else {
     console.log("No cache found, fetching data from DB for: ", key);
     const originalJson = res.json.bind(res);
     
     res.json = (body: any) => {
       console.log("Caching new response for: ", key);
-      cache.set(key, body); // Cache the response
-      return originalJson(body); // Return the response to client
+      cache.set(key, body);
+      return originalJson(body);
     };
-    next(); // Continue to the next middleware if no cached response
+    next();
   }
 }
 
-  
 // Register the routes
 app.use('/news', cacheMiddleware, newsRouter);
 app.use('/applications', cacheMiddleware, applicationRouter);
+app.use('/job-listings', jobListingRouter); // Removed caching middleware for job listings
 app.use("/team-members", cacheMiddleware, teamMemberRouter);
 app.use("/users", cacheMiddleware, userRouter);
 app.use("/manageUsers", cacheMiddleware,  manageUserRouter);
