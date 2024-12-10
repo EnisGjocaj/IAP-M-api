@@ -88,18 +88,25 @@ model JobListing {
   isActive    Boolean   @default(true)
 }
 
+enum TeamMemberRole {
+  EXECUTIVE_DIRECTOR    // Drejtor ekzekutiv
+  MEETING_COORDINATOR   // Koordinator i takimeve
+  BOARD_MEMBER         // Pjestar i bordit
+  PRESIDENT            // President
+}
+
 model TeamMember {
-  id          Int      @id @default(autoincrement())
+  id          Int            @id @default(autoincrement())
   fullName    String
-  role        String
+  role        TeamMemberRole
   description String
   title       String
   imagePath   String
-
+  email       String?
+  phoneNumber String?
   cvPath      String?
   linkedinUrl String?
   twitterUrl  String?
   facebookUrl String?
-
   createdAt   DateTime @default(now())
 }

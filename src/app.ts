@@ -50,8 +50,8 @@ const storage = multer.diskStorage({
 // Multer middleware
 const upload = multer({ storage });
 
-// Serve static files from the uploads directory
-app.use('/uploads', express.static(uploadDir));
+// app.use('/uploads', express.static(uploadDir));
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 // Example image upload route
 app.post('/api/upload', upload.single('file'), (req, res) => {

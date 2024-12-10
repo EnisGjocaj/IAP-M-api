@@ -93,7 +93,17 @@ teamMemberRouter.post('/', upload.fields([
         const imagePath = files['image'] ? `/uploads/images/${files['image'][0].filename}` : '';
         const cvPath = files['cv'] ? `/uploads/cvs/${files['cv'][0].filename}` : '';
 
-        const { fullName, role, description, title, linkedinUrl, twitterUrl, facebookUrl } = req.body;
+        const { 
+            fullName, 
+            role, 
+            description, 
+            title, 
+            email,
+            phoneNumber,
+            linkedinUrl, 
+            twitterUrl, 
+            facebookUrl 
+        } = req.body;
 
         const teamMember = await teamMemberService.createTeamMember({
             fullName,
@@ -102,6 +112,8 @@ teamMemberRouter.post('/', upload.fields([
             title,
             imagePath,
             cvPath,
+            email,
+            phoneNumber,
             linkedinUrl,
             twitterUrl,
             facebookUrl,
@@ -145,11 +157,21 @@ teamMemberRouter.put('/:id', upload.fields([
 // Delete team member
 teamMemberRouter.delete('/:id', async (req: Request, res: Response) => {
     try {
-        await teamMemberService.deleteTeamMember(req.params.id);
-        return res.status(204).send();
+        console.log('Delete request received for ID:', req.params.id);
+        
+        const result = await teamMemberService.deleteTeamMember(req.params.id);
+        console.log('Delete operation result:', result);
+        
+        return res.status(result.statusCode).json({
+            success: result.statusCode === 200,
+            message: result.message
+        });
     } catch (error) {
-        console.error('Error deleting team member:', error);
-        return res.status(500).json({ message: 'Internal server error' });
+        console.error('Error in delete route:', error);
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Internal server error' 
+        });
     }
 });
 
