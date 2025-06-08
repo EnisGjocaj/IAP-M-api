@@ -1,4 +1,4 @@
-import { PrismaClient, TrainingType } from '@prisma/client';
+import { PrismaClient, TrainingType, TeamMemberRole } from '@prisma/client';
 import * as process from 'process';
 
 const prisma = new PrismaClient();
@@ -407,6 +407,54 @@ const news = [
   }
 ];
 
+const teamMembers = [
+  {
+    id: 11,
+    fullName: 'Adnan Neziraj',
+    role: TeamMemberRole.PRESIDENT,
+    description: 'President of IAP-M',
+    title: 'President',
+    imagePath: '/uploads/image-1726589096066-218857047.png',
+    createdAt: new Date('2024-09-17T16:04:56.072Z')
+  },
+  {
+    id: 12,
+    fullName: 'Sara Arifaj',
+    role: TeamMemberRole.PRESIDENT,
+    description: 'Sara Arifaj president i IAP-M',
+    title: 'President of IAP-M',
+    imagePath: '/uploads/image-1726589185270-429842664.png',
+    createdAt: new Date('2024-09-17T16:06:25.272Z')
+  },
+  {
+    id: 10,
+    fullName: 'Shpetim Misiri',
+    role: TeamMemberRole.PRESIDENT,
+    description: 'Shpetim Misiri president i IAP-M',
+    title: 'President of IAP-M',
+    imagePath: '/uploads/image-1726589203870-362225657.png',
+    createdAt: new Date('2024-09-17T12:51:34.833Z')
+  },
+  {
+    id: 13,
+    fullName: 'Ardit Bobi',
+    role: TeamMemberRole.EXECUTIVE_DIRECTOR,
+    description: 'Ardit Bobi drejtor ekzekutiv i IAP-M',
+    title: 'Drejtor Ekzekutiv',
+    imagePath: '/uploads/image-1726589203870-362225657.png',
+    createdAt: new Date('2024-09-17T12:51:34.833Z')
+  },
+  {
+    id: 14,
+    fullName: 'Bleona Lajqi',
+    role: TeamMemberRole.MEETING_COORDINATOR,
+    description: 'Bleona Lajqi koordinator i takimeve i IAP-M',
+    title: 'Koordinator i Takimeve',
+    imagePath: '/uploads/image-1726589203870-362225657.png',
+    createdAt: new Date('2024-09-17T12:51:34.833Z')
+  }
+];
+
 async function seed() {
   try {
     console.log('Starting to seed users...');
@@ -420,6 +468,7 @@ async function seed() {
       });
     }
     console.log('Users seeding finished.');
+
 
     console.log('Starting to seed applications...');
     // Then seed applications
@@ -437,6 +486,7 @@ async function seed() {
     }
     console.log('Applications seeding finished.');
 
+
     console.log('Starting to seed news...');
     // Seed news
     for (const newsItem of news) {
@@ -447,6 +497,17 @@ async function seed() {
       });
     }
     console.log('News seeding finished.');
+
+    // Seed team members
+    console.log('Starting to seed team members...');
+    for (const member of teamMembers) {
+      await prisma.teamMember.upsert({
+        where: { id: member.id },
+        update: {},
+        create: member
+      });
+    }
+    console.log('Team members seeding finished.');
 
   } catch (error) {
     console.error('Error during seeding:', error);

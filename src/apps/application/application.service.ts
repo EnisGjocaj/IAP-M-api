@@ -44,46 +44,71 @@ export class ApplicationService {
   // }
 
 
-  async createApplication(data: { name: string; surname: string; email: string; type: 'INFORMATION_SCIENCE' | 'AGROBUSINESS' | 'ACCOUNTING' | 'MARKETING' }) {
+  async createApplication(data: { 
+    name: string; 
+    surname: string; 
+    email: string; 
+    type: 'INFORMATION_SCIENCE' | 'AGROBUSINESS' | 'ACCOUNTING' | 'MARKETING' 
+  }) {
     try {
-      // Find or create the user
-      let user = await prisma.user.findUnique({
-        where: { email: data.email },
-      });
-  
-      if (!user) {
-        // Create the user if they do not exist
-        user = await prisma.user.create({
+      // Use a single transaction for both user creation and application
+      const result = await prisma.$transaction(async (tx) => {
+        // Check if user exists first
+        let user = await tx.user.findUnique({
+          where: { email: data.email },
+        });
+
+        if (!user) {
+          // Create new user with a random password
+          const randomPassword = Math.random().toString(36).slice(-8);
+          user = await tx.user.create({
+            data: {
+              email: data.email,
+              name: data.name,
+              surname: data.surname,
+              password: randomPassword,
+            },
+          });
+        }
+
+        // Create new application
+        const newApplication = await tx.application.create({
           data: {
-            email: data.email,
             name: data.name,
             surname: data.surname,
-            // You might need to provide a default password if creating a user is mandatory
-            password: 'defaultPassword123', // Handle default password or adjust logic accordingly
+            email: data.email,
+            type: data.type as TrainingType,
+            userId: user.id,
           },
         });
-      }
-  
-      const applicationType: TrainingType = data.type as TrainingType;
 
-      // Create a new application for the user
-      const newApplication = await prisma.application.create({
-        data: {
-          name: data.name,
-          surname: data.surname,
-          email: data.email,
-          type: applicationType, // Use the TrainingType enum
-          userId: user.id,
-        },
+        return { user, application: newApplication };
       });
-  
-      // Send the application email
+
+      // Send email after successful transaction
       await sendApplicationEmail(data.email, data.name, data.type);
-  
-      return { statusCode: 201, message: newApplication };
+
+      return { 
+        statusCode: 201, 
+        message: result.application 
+      };
+
     } catch (error: any) {
       console.error('Error creating application:', error);
-      throw new Error(`Error creating application: ${error.message}`);
+      
+      // Handle duplicate application
+      if (error.code === 'P2002' && error.meta?.target?.includes('email_type')) {
+        return { 
+          statusCode: 400, 
+          message: 'You have already applied for this training type' 
+        };
+      }
+
+      // Handle any other errors
+      return { 
+        statusCode: 500, 
+        message: 'Error creating application. Please try again.' 
+      };
     }
   }
 

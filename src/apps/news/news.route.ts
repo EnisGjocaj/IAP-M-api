@@ -1,46 +1,30 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import { NewsService } from './news.service';
-
-import NodeCache from 'node-cache';
-
-const cache = new NodeCache({ stdTTL: 60 * 5 });
+import multer from 'multer';
 
 const newsService = new NewsService();
 const newsRouter = express.Router();
 
-import upload from '../../multerConfig';
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images are allowed'));
+    }
+  }
+});
 
-// Get all news
-// newsRouter.get('/', async (req: Request, res: Response) => {
-//   try {
-//     const newsList = await newsService.getAllNews();
-//     return res.status(200).json(newsList);
-//   } catch (error) {
-//     console.error('Error fetching news:', error);
-//     return res.status(500).json({ message: 'Internal server error' });
-//   }
-// });
-
-
+// Get all news - No caching
 newsRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const cacheKey = '/news'; // Unique key for the news data
-    const cachedData = cache.get(cacheKey);
-
-    if (cachedData) {
-      // Return cached data immediately
-      res.json(cachedData);
-
-      // Fetch fresh data asynchronously and update cache
-      const freshNews = await newsService.getAllNews();
-      cache.set(cacheKey, freshNews);
-      console.log("Cache updated with fresh news data.");
-    } else {
-      // No cache available, fetch data from DB and cache it
-      const newsList = await newsService.getAllNews();
-      cache.set(cacheKey, newsList); // Cache the news data
-      res.json(newsList); // Return news to client
-    }
+    const newsList = await newsService.getAllNews();
+    return res.status(200).json(newsList);
   } catch (error) {
     console.error('Error fetching news:', error);
     return res.status(500).json({ message: 'Internal server error' });
@@ -61,70 +45,35 @@ newsRouter.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-
-// Create news
-// newsRouter.post('/', upload.single('image'), async (req: Request, res: Response, next: NextFunction) => {
-//   try {
-//     const { title, content } = req.body; // Get form fields from req.body
-//     const imageUrl = req.file ? `/uploads/${req.file.filename}` : ''; // Image file path
-
-//     // Log to verify form data and image
-//     console.log('Form Data:', { title, content, imageUrl });
-
-//     // Create the news item
-//     const newsItem = await newsService.createNews({
-//       title,
-//       content,
-//       imageUrl, // Pass the image URL to the service
-//     });
-
-//     return res.status(201).json(newsItem);
-//   } catch (error) {
-//     console.error('Error creating news:', error);
-//     return res.status(500).json({ message: 'Error creating news' });
-//   }
-// });
-
+// Create news with image
 newsRouter.post('/', upload.single('image'), async (req, res) => {
   try {
-    const { title, content } = req.body; // Get form fields from req.body
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : ''; // Image file path
-
-    // Log to verify form data and image
-    console.log('Form Data:', { title, content, imageUrl });
-
-    // Create the news item
+    const { title, content } = req.body;
     const newsItem = await newsService.createNews({
       title,
       content,
-      imageUrl, // Pass the image URL to the service
+      image: req.file
     });
-
     return res.status(201).json(newsItem);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating news:', error);
-    return res.status(500).json({ message: 'Error creating news' });
+    return res.status(500).json({ message: error.message });
   }
 });
 
-
 // Update news
-newsRouter.put('/:id', upload.single('image'), async (req: Request, res: Response) => {
+newsRouter.put('/:id', upload.single('image'), async (req, res) => {
   try {
-    const { title, content } = req.body; // Get form fields
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : undefined; // Set imageUrl only if an image is uploaded
-
-    // Create an object with fields to update
-    const updateData: any = { title, content };
-    if (imageUrl) {
-      updateData.imageUrl = imageUrl;
-    }
-
-    const updatedNews = await newsService.updateNews(req.params.id, updateData);
+    const { title, content } = req.body;
+    const updatedNews = await newsService.updateNews(req.params.id, {
+      title,
+      content,
+      image: req.file
+    });
     return res.status(200).json(updatedNews);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating news:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ message: error.message });
   }
 });
 
