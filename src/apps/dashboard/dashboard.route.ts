@@ -1,4 +1,3 @@
-// src/routes/dashboard.router.ts
 import express, { Request, Response } from 'express';
 import { DashboardService } from './dashboard.service';
 

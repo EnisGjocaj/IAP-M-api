@@ -1,4 +1,4 @@
-// prisma/schema.prisma
+
 
 generator client {
   provider = "prisma-client-js"
@@ -30,7 +30,7 @@ model News {
   title       String
   content     String
   createdAt   DateTime @default(now())
-  imageUrl    String?  // Optional field for image URL
+  imageUrl    String?  
 }
 
 // model Application {
@@ -60,12 +60,13 @@ model Application {
   name          String
   surname       String
   email         String
+  phoneNumber   String?      
   createdAt     DateTime     @default(now())
   type          TrainingType
 
   user          User?        @relation(fields: [userId], references: [id])
   
-  @@unique([email, type]) // Unique constraint on email and type combination
+  @@unique([email, type]) 
 }
 
 enum JobType {

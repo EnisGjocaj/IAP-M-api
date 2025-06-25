@@ -1,4 +1,4 @@
-// teamMember.router.ts
+
 import express, { Request, Response, NextFunction } from 'express';
 import { TeamMemberService } from './teamMember.service';
 import multer from 'multer';
@@ -6,12 +6,12 @@ import path from 'path';
 import { MediaService } from '../media/media.service';
 import NodeCache from 'node-cache';
 
-const cache = new NodeCache({ stdTTL: 300 }); // 5 minutes cache
+const cache = new NodeCache({ stdTTL: 300 });
 const teamMemberRouter = express.Router();
 const teamMemberService = new TeamMemberService();
 const mediaService = new MediaService();
 
-// Configure multer for both image and CV uploads
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const uploadDir = file.fieldname === 'cv' ? 'uploads/cvs' : 'uploads/images';
@@ -27,14 +27,12 @@ const upload = multer({
     storage: storage,
     fileFilter: (req, file, cb) => {
         if (file.fieldname === 'cv') {
-            // Allow PDF files for CV
             if (file.mimetype === 'application/pdf') {
                 cb(null, true);
             } else {
                 cb(null, false);
             }
         } else if (file.fieldname === 'image') {
-            // Allow common image formats
             if (file.mimetype.startsWith('image/')) {
                 cb(null, true);
             } else {
@@ -44,22 +42,18 @@ const upload = multer({
     }
 });
 
-// Get all team members
 teamMemberRouter.get('/', async (req: Request, res: Response) => {
     try {
         const cacheKey = 'team-members-list';
         const cachedData = cache.get(cacheKey);
         
         if (cachedData) {
-            // Return cached data immediately
             res.json(cachedData);
             
-            // Fetch fresh data asynchronously and update cache
             const freshData = await teamMemberService.getAllTeamMembers();
             cache.set(cacheKey, freshData.message);
             console.log("Cache updated with fresh data");
         } else {
-            // No cache available, fetch data and cache it
             const teamMembers = await teamMemberService.getAllTeamMembers();
             cache.set(cacheKey, teamMembers.message);
             res.json(teamMembers.message);

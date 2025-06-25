@@ -1,4 +1,3 @@
-// src/services/dashboard.service.ts
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -6,7 +5,7 @@ const prisma = new PrismaClient();
 export class DashboardService {
   async getStatistics() {
     try {
-      // Get counts for users, applications, and team members
+      
       const userCount = await prisma.user.count();
       const applicationCount = await prisma.application.count();
       const teamMemberCount = await prisma.teamMember.count();
@@ -19,7 +18,6 @@ export class DashboardService {
 
   async getTrainingApplications() {
     try {
-      // Get counts of applications by training type
       const trainingCounts = await prisma.application.groupBy({
         by: ['type'],
         _count: {

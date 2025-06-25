@@ -41,7 +41,6 @@ export class NewsService {
 
       if (error) throw error;
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from(this.BUCKET_NAME)
         .getPublicUrl(fileName);
@@ -101,12 +100,10 @@ export class NewsService {
 
   async deleteNews(newsId: string) {
     try {
-      // Get the news item to get the image URL
       const news = await prisma.news.findUnique({
         where: { id: Number(newsId) }
       });
 
-      // Delete the image from Supabase if it exists
       if (news?.imageUrl) {
         const fileName = news.imageUrl.split('/').pop();
         if (fileName) {
@@ -116,7 +113,6 @@ export class NewsService {
         }
       }
 
-      // Delete the news record
       const deletedNews = await prisma.news.delete({
         where: { id: Number(newsId) }
       });

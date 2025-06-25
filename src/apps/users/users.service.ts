@@ -10,7 +10,6 @@ export class UserService {
       // Hash the password
       const hashedPassword = await bcrypt.hash(data.password, 10);
 
-      // Create user
       const user = await prisma.user.create({
         data: {
           name: data.name,
@@ -20,7 +19,6 @@ export class UserService {
         },
       });
 
-      // Generate JWT token
       const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, {
         expiresIn: '1h',
       });

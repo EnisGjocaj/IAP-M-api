@@ -459,7 +459,6 @@ async function seed() {
   try {
     console.log('Starting to seed users...');
     
-    // First seed users
     for (const user of users) {
       await prisma.user.upsert({
         where: { email: user.email },
@@ -471,7 +470,6 @@ async function seed() {
 
 
     console.log('Starting to seed applications...');
-    // Then seed applications
     for (const application of applications) {
       await prisma.application.upsert({
         where: {
@@ -488,7 +486,7 @@ async function seed() {
 
 
     console.log('Starting to seed news...');
-    // Seed news
+    // Seed newss
     for (const newsItem of news) {
       await prisma.news.upsert({
         where: { id: newsItem.id },
@@ -498,7 +496,6 @@ async function seed() {
     }
     console.log('News seeding finished.');
 
-    // Seed team members
     console.log('Starting to seed team members...');
     for (const member of teamMembers) {
       await prisma.teamMember.upsert({

@@ -5,7 +5,6 @@ import multer from 'multer';
 const newsService = new NewsService();
 const newsRouter = express.Router();
 
-// Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {

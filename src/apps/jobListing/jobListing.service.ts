@@ -22,7 +22,7 @@ export class JobListingService {
       const jobListing = await prisma.jobListing.create({
         data: {
           title: data.title,
-          company: data.company || 'IAPM', // Set default value if company is not provided
+          company: data.company || 'IAPM', 
           location: data.location,
           type: data.type,
           salary: data.salary,
@@ -59,11 +59,10 @@ export class JobListingService {
 
       const skip = (page - 1) * limit;
 
-      // Build where clause - FIXED: Removed the condition for isActive when including inactive
       const where: Prisma.JobListingWhereInput = {
         ...(type && { type }),
         ...(location && { location }),
-        ...(includeInactive ? {} : { isActive: true }), // Only filter active when not including inactive
+        ...(includeInactive ? {} : { isActive: true }), 
         ...(search && {
           OR: [
             { title: { contains: search, mode: 'insensitive' } },
@@ -76,7 +75,7 @@ export class JobListingService {
 
       console.log('Query where clause:', JSON.stringify(where, null, 2));
 
-      // First, let's get ALL job listings to check their status
+      
       console.log('Checking all job listings status...');
       const allListings = await prisma.jobListing.findMany();
       console.log('All listings status breakdown:', {
@@ -86,7 +85,6 @@ export class JobListingService {
         statuses: allListings.map(job => ({ id: job.id, isActive: job.isActive }))
       });
 
-      // Get total count and job listings with filters
       const [total, jobListings] = await Promise.all([
         prisma.jobListing.count({ where }),
         prisma.jobListing.findMany({

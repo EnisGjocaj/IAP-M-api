@@ -2,6 +2,14 @@ import { PrismaClient, TrainingType } from '@prisma/client';
 
 import { sendApplicationEmail } from './mailer';
 
+interface ApplicationData {
+  name: string;
+  surname: string;
+  email: string;
+  phoneNumber?: string;
+  type: 'INFORMATION_SCIENCE' | 'AGROBUSINESS' | 'ACCOUNTING' | 'MARKETING';
+}
+
 
 const prisma = new PrismaClient();
 
@@ -44,22 +52,15 @@ export class ApplicationService {
   // }
 
 
-  async createApplication(data: { 
-    name: string; 
-    surname: string; 
-    email: string; 
-    type: 'INFORMATION_SCIENCE' | 'AGROBUSINESS' | 'ACCOUNTING' | 'MARKETING' 
-  }) {
+
+  async createApplication(data: ApplicationData) {
     try {
-      // Use a single transaction for both user creation and application
       const result = await prisma.$transaction(async (tx) => {
-        // Check if user exists first
         let user = await tx.user.findUnique({
           where: { email: data.email },
         });
 
         if (!user) {
-          // Create new user with a random password
           const randomPassword = Math.random().toString(36).slice(-8);
           user = await tx.user.create({
             data: {
@@ -71,12 +72,12 @@ export class ApplicationService {
           });
         }
 
-        // Create new application
         const newApplication = await tx.application.create({
           data: {
             name: data.name,
             surname: data.surname,
             email: data.email,
+            phoneNumber: data.phoneNumber,
             type: data.type as TrainingType,
             userId: user.id,
           },
@@ -85,7 +86,6 @@ export class ApplicationService {
         return { user, application: newApplication };
       });
 
-      // Send email after successful transaction
       await sendApplicationEmail(data.email, data.name, data.type);
 
       return { 
@@ -96,7 +96,6 @@ export class ApplicationService {
     } catch (error: any) {
       console.error('Error creating application:', error);
       
-      // Handle duplicate application
       if (error.code === 'P2002' && error.meta?.target?.includes('email_type')) {
         return { 
           statusCode: 400, 
@@ -104,7 +103,6 @@ export class ApplicationService {
         };
       }
 
-      // Handle any other errors
       return { 
         statusCode: 500, 
         message: 'Error creating application. Please try again.' 

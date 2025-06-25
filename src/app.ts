@@ -43,7 +43,7 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname)); // Unique filename
+    cb(null, Date.now() + path.extname(file.originalname)); 
   },
 });
 
@@ -53,12 +53,12 @@ const upload = multer({ storage });
 // app.use('/uploads', express.static(uploadDir));
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
-// Example image upload route
+
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  const fileUrl = `/uploads/${req.file.filename}`; // URL to access the image
+  const fileUrl = `/uploads/${req.file.filename}`; 
   res.json({ url: fileUrl });
 });
 
@@ -78,7 +78,7 @@ async function preloadCache() {
 
     const newsData = await newsService.getAllNews();
     if (newsData) {
-      cache.set('/news', newsData); // Cache news articles
+      cache.set('/news', newsData); 
       console.log("News data preloaded into cache.");
     } else {
       console.log("Error during cache preloading for news.");
@@ -88,13 +88,10 @@ async function preloadCache() {
   }
 }
 
-// Call preload function on server startup
 preloadCache();
 
-// Refresh the cache every 5 minutes
 setInterval(preloadCache, 5 * 60 * 1000);
 
-// Function to invalidate related cache entries
 function invalidateRelatedCache(path: string) {
   const keys = cache.keys();
   const relatedKeys = keys.filter(key => key.includes(path));
@@ -103,10 +100,8 @@ function invalidateRelatedCache(path: string) {
 }
 
 function cacheMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
-  // Skip caching for non-GET requests
   if (req.method !== 'GET') {
-    // Invalidate related cache on modifications
-    const basePath = req.path.split('/')[1]; // e.g., 'job-listings' from '/job-listings/123'
+    const basePath = req.path.split('/')[1]; 
     invalidateRelatedCache(basePath);
     return next();
   }
@@ -130,10 +125,9 @@ function cacheMiddleware(req: express.Request, res: express.Response, next: expr
   }
 }
 
-// Register the routes
 app.use('/news', cacheMiddleware, newsRouter);
 app.use('/applications', cacheMiddleware, applicationRouter);
-app.use('/job-listings', jobListingRouter); // Removed caching middleware for job listings
+app.use('/job-listings', jobListingRouter); 
 app.use("/team-members", cacheMiddleware, teamMemberRouter);
 app.use("/users", cacheMiddleware, userRouter);
 app.use("/manageUsers", cacheMiddleware,  manageUserRouter);

@@ -1,4 +1,3 @@
-// teamMember.service.ts
 import { PrismaClient, TeamMemberRole } from '@prisma/client';
 import multer from 'multer';
 import path from 'path';
@@ -119,13 +118,11 @@ export class TeamMemberService {
     try {
       console.log('Attempting to delete team member with ID:', teamMemberId);
       
-      // Convert and validate ID
       const id = Number(teamMemberId);
       if (isNaN(id)) {
         return { statusCode: 400, message: 'Invalid ID format' };
       }
 
-      // First check if the team member exists
       const teamMember = await prisma.teamMember.findUnique({
         where: { id }
       });
@@ -136,7 +133,6 @@ export class TeamMemberService {
         return { statusCode: 404, message: 'Team member not found' };
       }
 
-      // If exists, then delete
       const deletedTeamMember = await prisma.teamMember.delete({
         where: { id }
       });

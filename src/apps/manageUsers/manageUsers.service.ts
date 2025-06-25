@@ -30,14 +30,12 @@ export class ManageUserService {
 
   async createUser(data: { name: string; surname: string; email: string; password: string }) {
     try {
-      // Hash the password before saving to the database
       const hashedPassword = await bcrypt.hash(data.password, 10);
 
-      // Create user with the hashed password
       const newUser = await prisma.user.create({
         data: {
           ...data,
-          password: hashedPassword, // Store the hashed password
+          password: hashedPassword, 
         },
       });
 
