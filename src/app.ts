@@ -47,6 +47,48 @@ const storage = multer.diskStorage({
   },
 });
 
+
+
+// Dynamic meta tags for news detail (MUST be before export default app)
+app.get('/news/:id', async (req, res) => {
+  const newsId = req.params.id;
+  const result = await newsService.getNewsById(newsId);
+  if (result.statusCode !== 200) {
+    return res.sendFile(path.join(
+      __dirname,
+      '../../IAPM-front/IAP-M-frontend/build',
+      'index.html'
+    ));
+  }
+  const news = result.message;
+  const indexFile = path.join(
+    __dirname,
+    '../../../IAPM-front/IAP-M-frontend/build',
+    'index.html'
+  );
+  console.log('Trying to read index.html from:', indexFile);
+  fs.readFile(indexFile, 'utf8', (err, htmlData) => {
+    if (err) {
+      return res.status(500).send('Error reading index.html');
+    }
+    const title = news.title;
+    const description = news.content.split('\n').filter(Boolean).slice(0, 3).join(' ');
+    const imageUrl = news.imageUrl?.startsWith('http') ? news.imageUrl : `https://iap-m.com${news.imageUrl}`;
+    const url = `https://iap-m.com/news/${newsId}`;
+    let customHtml = htmlData
+      .replace(/<title>.*<\/title>/, `<title>${title}</title>`)
+      .replace(/<meta property="og:title" content=".*?"/, `<meta property="og:title" content="${title}"`)
+      .replace(/<meta property="og:description" content=".*?"/, `<meta property="og:description" content="${description}"`)
+      .replace(/<meta property="og:image" content=".*?"/, `<meta property="og:image" content="${imageUrl}"`)
+      .replace(/<meta property="og:url" content=".*?"/, `<meta property="og:url" content="${url}"`)
+      .replace(/<meta name="twitter:title" content=".*?"/, `<meta name="twitter:title" content="${title}"`)
+      .replace(/<meta name="twitter:description" content=".*?"/, `<meta name="twitter:description" content="${description}"`)
+      .replace(/<meta name="twitter:image" content=".*?"/, `<meta name="twitter:image" content="${imageUrl}"`);
+    res.send(customHtml);
+  });
+});
+
+
 // Multer middleware
 const upload = multer({ storage });
 
@@ -125,12 +167,14 @@ function cacheMiddleware(req: express.Request, res: express.Response, next: expr
   }
 }
 
-app.use('/news', cacheMiddleware, newsRouter);
+app.use('/api/news', cacheMiddleware, newsRouter);
 app.use('/applications', cacheMiddleware, applicationRouter);
 app.use('/job-listings', jobListingRouter); 
 app.use("/team-members", cacheMiddleware, teamMemberRouter);
 app.use("/users", cacheMiddleware, userRouter);
 app.use("/manageUsers", cacheMiddleware,  manageUserRouter);
 app.use("/dashboard", cacheMiddleware, dashboardRouter);
+
+app.use(express.static(path.join(__dirname, '../../../IAPM-front/IAP-M-frontend/build')));
 
 export default app;
