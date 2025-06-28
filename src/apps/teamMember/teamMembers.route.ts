@@ -1,4 +1,3 @@
-
 import express, { Request, Response, NextFunction } from 'express';
 import { TeamMemberService } from './teamMember.service';
 import multer from 'multer';
@@ -23,24 +22,7 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({
-    storage: storage,
-    fileFilter: (req, file, cb) => {
-        if (file.fieldname === 'cv') {
-            if (file.mimetype === 'application/pdf') {
-                cb(null, true);
-            } else {
-                cb(null, false);
-            }
-        } else if (file.fieldname === 'image') {
-            if (file.mimetype.startsWith('image/')) {
-                cb(null, true);
-            } else {
-                cb(null, false);
-            }
-        }
-    }
-});
+const upload = multer({ storage: multer.memoryStorage() });
 
 teamMemberRouter.get('/', async (req: Request, res: Response) => {
     try {
@@ -64,7 +46,6 @@ teamMemberRouter.get('/', async (req: Request, res: Response) => {
     }
 });
 
-// Get team member by ID
 teamMemberRouter.get('/:id', async (req: Request, res: Response) => {
     try {
         const teamMember = await teamMemberService.getTeamMemberById(req.params.id);
@@ -78,25 +59,11 @@ teamMemberRouter.get('/:id', async (req: Request, res: Response) => {
     }
 });
 
-teamMemberRouter.post('/', upload.fields([
-    { name: 'image', maxCount: 1 },
-    { name: 'cv', maxCount: 1 }
-]), async (req: Request, res: Response) => {
+teamMemberRouter.post('/', upload.single('image'), async (req: Request, res: Response) => {
     try {
-        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-        const imagePath = files['image'] ? `/uploads/images/${files['image'][0].filename}` : '';
-        const cvPath = files['cv'] ? `/uploads/cvs/${files['cv'][0].filename}` : '';
-
-        const { 
-            fullName, 
-            role, 
-            description, 
-            title, 
-            email,
-            phoneNumber,
-            linkedinUrl, 
-            twitterUrl, 
-            facebookUrl 
+        const {
+            fullName, role, description, title, email, phoneNumber,
+            linkedinUrl, twitterUrl, facebookUrl, cvPath
         } = req.body;
 
         const teamMember = await teamMemberService.createTeamMember({
@@ -104,13 +71,13 @@ teamMemberRouter.post('/', upload.fields([
             role,
             description,
             title,
-            imagePath,
-            cvPath,
             email,
             phoneNumber,
             linkedinUrl,
             twitterUrl,
             facebookUrl,
+            cvPath,
+            image: req.file
         });
 
         return res.status(teamMember.statusCode).json(teamMember.message);
@@ -120,19 +87,26 @@ teamMemberRouter.post('/', upload.fields([
     }
 });
 
-// Update team member
 teamMemberRouter.put('/:id', upload.fields([
     { name: 'image', maxCount: 1 },
     { name: 'cv', maxCount: 1 }
 ]), async (req: Request, res: Response) => {
     try {
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-        const imagePath = files['image'] ? `/uploads/images/${files['image'][0].filename}` : undefined;
-        const cvPath = files['cv'] ? `/uploads/cvs/${files['cv'][0].filename}` : undefined;
+        let imagePath: string | undefined = undefined;
+        let cvPath: string | undefined = undefined;
 
-        const { fullName, role, description, title, linkedinUrl, twitterUrl, facebookUrl } = req.body;
+        if (files && files['image'] && files['image'][0]) {
+            imagePath = await teamMemberService.uploadImage(files['image'][0]);
+        }
 
-        const updateData: any = { fullName, role, description, title, linkedinUrl, twitterUrl, facebookUrl };
+        if (files && files['cv'] && files['cv'][0]) {
+
+        }
+
+        const { fullName, role, description, title, linkedinUrl, twitterUrl, facebookUrl, email, phoneNumber } = req.body;
+
+        const updateData: any = { fullName, role, description, title, linkedinUrl, twitterUrl, facebookUrl, email, phoneNumber };
         if (imagePath) {
             updateData.imagePath = imagePath;
         }
@@ -148,7 +122,6 @@ teamMemberRouter.put('/:id', upload.fields([
     }
 });
 
-// Delete team member
 teamMemberRouter.delete('/:id', async (req: Request, res: Response) => {
     try {
         console.log('Delete request received for ID:', req.params.id);

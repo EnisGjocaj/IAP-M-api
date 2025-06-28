@@ -27,7 +27,7 @@ const newsService = new NewsService();
 
 const app = express();
 
-app.use(express.json()); // Middleware to parse JSON
+app.use(express.json()); 
 
 app.use(cors());
 
@@ -37,7 +37,6 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Multer storage configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadDir);
@@ -49,7 +48,6 @@ const storage = multer.diskStorage({
 
 
 
-// Dynamic meta tags for news detail (MUST be before export default app)
 app.get('/news/:id', async (req, res) => {
   const newsId = req.params.id;
   const result = await newsService.getNewsById(newsId);
@@ -61,11 +59,7 @@ app.get('/news/:id', async (req, res) => {
     ));
   }
   const news = result.message;
-  const indexFile = path.join(
-    __dirname,
-    '../../../IAPM-front/IAP-M-frontend/build',
-    'index.html'
-  );
+  const indexFile = '/home/ahodifer/www/iap-m.com/index.html';
   console.log('Trying to read index.html from:', indexFile);
   fs.readFile(indexFile, 'utf8', (err, htmlData) => {
     if (err) {
@@ -89,10 +83,8 @@ app.get('/news/:id', async (req, res) => {
 });
 
 
-// Multer middleware
 const upload = multer({ storage });
 
-// app.use('/uploads', express.static(uploadDir));
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 
@@ -175,6 +167,9 @@ app.use("/users", cacheMiddleware, userRouter);
 app.use("/manageUsers", cacheMiddleware,  manageUserRouter);
 app.use("/dashboard", cacheMiddleware, dashboardRouter);
 
-app.use(express.static(path.join(__dirname, '../../../IAPM-front/IAP-M-frontend/build')));
+app.use(express.static('/home/ahodifer/www/iap-m.com'));
+
+// app.use(express.static(path.join(__dirname, '../../../IAPM-front/IAP-M-frontend/build')));
+
 
 export default app;

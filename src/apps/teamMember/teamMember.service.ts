@@ -1,10 +1,13 @@
 import { PrismaClient, TeamMemberRole } from '@prisma/client';
 import multer from 'multer';
 import path from 'path';
+import { supabase } from '../../supabase.config'; 
 
 const prisma = new PrismaClient();
 
 export class TeamMemberService {
+  private readonly BUCKET_NAME = 'team-member-images';
+
   async getAllTeamMembers() {
     try {
       const teamMembers = await prisma.teamMember.findMany();
@@ -26,27 +29,75 @@ export class TeamMemberService {
     }
   }
 
+  async uploadImage(file: Express.Multer.File) {
+    try {
+      const fileExt = file.originalname.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from(this.BUCKET_NAME)
+        .upload(fileName, file.buffer, {
+          contentType: file.mimetype,
+          cacheControl: '3600'
+        });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from(this.BUCKET_NAME)
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error: any) {
+      throw new Error(`Error uploading image: ${error.message}`);
+    }
+  }
 
   async createTeamMember(data: { 
     fullName: string; 
     role: TeamMemberRole;
     description: string; 
     title: string; 
-    imagePath?: string;
-    cvPath?: string | null;
     email?: string | null;
     phoneNumber?: string | null;
     linkedinUrl?: string | null;
     twitterUrl?: string | null;
     facebookUrl?: string | null;
-  }, image?: Express.Multer.File) {
+    cvPath?: string | null;
+    image?: Express.Multer.File
+  }) {
     try {
-      const imagePath = image ? `/uploads/${image.filename}` : null;
+      let imageUrl = '';
+      if (data.image) {
+        imageUrl = await this.uploadImage(data.image);
+      }
+
+      const {
+        fullName,
+        role,
+        description,
+        title,
+        email,
+        phoneNumber,
+        linkedinUrl,
+        twitterUrl,
+        facebookUrl,
+        cvPath
+      } = data;
 
       const teamMember = await prisma.teamMember.create({
         data: {
-          ...data,
-          imagePath: imagePath || ''
+          fullName,
+          role,
+          description,
+          title,
+          email,
+          phoneNumber,
+          linkedinUrl,
+          twitterUrl,
+          facebookUrl,
+          cvPath,
+          imagePath: imageUrl
         }
       });
 
@@ -54,28 +105,13 @@ export class TeamMemberService {
         statusCode: 201,
         message: {
           ...teamMember,
-          imagePath: `${process.env.API_URL}${teamMember.imagePath}`
+          imagePath: imageUrl
         }
       };
     } catch (error: any) {
-      return { statusCode: 500, message: error.message };
+      throw new Error(`Error creating team member: ${error.message}`);
     }
   }
-
-
-
-  // async updateTeamMember(teamMemberId: string, data: { fullName?: string; role?: string; description?: string; title?: string; imagePath?: string }) {
-  //   try {
-  //     const updatedTeamMember = await prisma.teamMember.update({
-  //       where: { id: Number(teamMemberId) },
-  //       data,
-  //     });
-  //     return { statusCode: 200, message: updatedTeamMember };
-  //   } catch (error: any) {
-  //     throw new Error(`Error updating team member: ${error.message}`);
-  //   }
-  // }
-
 
   async updateTeamMember(teamMemberId: string, data: { 
     fullName?: string; 
