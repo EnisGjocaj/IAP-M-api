@@ -11,6 +11,10 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum UserRole {
+  ADMIN
+  CLIENT
+}
 
 model User {
   id        Int      @id @default(autoincrement())
@@ -18,10 +22,10 @@ model User {
   surname   String
   email     String   @unique
   password  String
+  role      UserRole @default(CLIENT) 
   createdAt DateTime @default(now())
 
   applications Application[]
-
 }
 
 
@@ -112,3 +116,4 @@ model TeamMember {
   facebookUrl String?
   createdAt   DateTime @default(now())
 }
+
