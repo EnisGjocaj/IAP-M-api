@@ -9,18 +9,27 @@ interface AuthRequest extends Request {
 }
 
 export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) => {
+  console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
   const token = req.headers.authorization?.split(' ')[1]; 
+  console.log('Auth Header:', req.headers.authorization);
+  console.log('Token:', token);
 
   if (token) {
     jwt.verify(token, process.env.JWT_SECRET!, (err, user) => {
       if (err) {
-        return res.sendStatus(403); 
+        console.log('JWT Verification Error:', err);
+        // Return more detailed error
+        return res.status(403).json({ 
+          message: 'Token verification failed',
+          error: err.message 
+        });
       }
+      console.log('Verified User:', user);
       req.user = user as { userId: number; role: string }; 
       next();
     });
   } else {
-    res.sendStatus(401);
+    res.status(401).json({ message: 'No token provided' });
   }
 };
 

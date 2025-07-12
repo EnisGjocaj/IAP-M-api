@@ -19,6 +19,7 @@ import NodeCache from 'node-cache';
 
 import { TeamMemberService } from './apps/teamMember/teamMember.service';
 import { NewsService } from './apps/news/news.service';
+import featuredStudentRouter from './apps/featuredStudent/featuredStudent.route';
 
 const cache = new NodeCache({ stdTTL: 60 * 5 });
 
@@ -166,7 +167,7 @@ app.use("/team-members", cacheMiddleware, teamMemberRouter);
 app.use("/users", cacheMiddleware, userRouter);
 app.use("/manageUsers", cacheMiddleware,  manageUserRouter);
 app.use("/dashboard", cacheMiddleware, dashboardRouter);
-
+app.use("/featured-students", cacheMiddleware, featuredStudentRouter);
 app.use(express.static('/home/ahodifer/www/iap-m.com'));
 
 // app.use(express.static(path.join(__dirname, '../../../IAPM-front/IAP-M-frontend/build')));

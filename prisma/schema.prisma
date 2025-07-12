@@ -117,3 +117,29 @@ model TeamMember {
   createdAt   DateTime @default(now())
 }
 
+enum CourseType {
+  INFORMATION_SCIENCE
+  AGROBUSINESS
+  ACCOUNTING
+  MARKETING
+}
+
+model FeaturedStudent {
+  id            Int         @id @default(autoincrement())
+  name          String
+  surname       String
+  email         String      @unique
+  phoneNumber   String?
+  courseType    CourseType
+  score         Int         
+  imagePath     String?    
+  description   String      @db.Text  
+  achievements  String[]    
+  graduationDate DateTime   
+  isActive      Boolean     @default(true)
+  linkedinUrl   String?    
+  testimonial   String?     @db.Text  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
