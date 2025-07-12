@@ -20,6 +20,8 @@ import NodeCache from 'node-cache';
 import { TeamMemberService } from './apps/teamMember/teamMember.service';
 import { NewsService } from './apps/news/news.service';
 import featuredStudentRouter from './apps/featuredStudent/featuredStudent.route';
+import gradesRouter from './apps/smu/grades.route';
+import studentProfileRouter from './apps/studentProfile/studentProfile.route';
 
 const cache = new NodeCache({ stdTTL: 60 * 5 });
 
@@ -79,6 +81,45 @@ app.get('/news/:id', async (req, res) => {
       .replace(/<meta name="twitter:title" content=".*?"/, `<meta name="twitter:title" content="${title}"`)
       .replace(/<meta name="twitter:description" content=".*?"/, `<meta name="twitter:description" content="${description}"`)
       .replace(/<meta name="twitter:image" content=".*?"/, `<meta name="twitter:image" content="${imageUrl}"`);
+    res.send(customHtml);
+  });
+});
+
+app.get('/bord/:id', async (req, res) => {
+  const memberId = req.params.id;
+  const result = await teamMemberService.getTeamMemberById(memberId);
+  
+  if (result.statusCode !== 200) {
+    return res.sendFile(path.join(
+      __dirname,
+      '../../IAPM-front/IAP-M-frontend/build',
+      'index.html'
+    ));
+  }
+  
+  const member = result.message;
+  const indexFile = '/home/ahodifer/www/iap-m.com/index.html';
+  
+  fs.readFile(indexFile, 'utf8', (err, htmlData) => {
+    if (err) {
+      return res.status(500).send('Error reading index.html');
+    }
+    
+    const title = `${member.fullName} - ${member.title}`;
+    const description = member.description;
+    const imageUrl = member.imagePath?.startsWith('http') ? member.imagePath : `https://iap-m.com${member.imagePath}`;
+    const url = `https://iap-m.com/bord/${memberId}`;
+    
+    let customHtml = htmlData
+      .replace(/<title>.*<\/title>/, `<title>${title}</title>`)
+      .replace(/<meta property="og:title" content=".*?"/, `<meta property="og:title" content="${title}"`)
+      .replace(/<meta property="og:description" content=".*?"/, `<meta property="og:description" content="${description}"`)
+      .replace(/<meta property="og:image" content=".*?"/, `<meta property="og:image" content="${imageUrl}"`)
+      .replace(/<meta property="og:url" content=".*?"/, `<meta property="og:url" content="${url}"`)
+      .replace(/<meta name="twitter:title" content=".*?"/, `<meta name="twitter:title" content="${title}"`)
+      .replace(/<meta name="twitter:description" content=".*?"/, `<meta name="twitter:description" content="${description}"`)
+      .replace(/<meta name="twitter:image" content=".*?"/, `<meta name="twitter:image" content="${imageUrl}"`);
+    
     res.send(customHtml);
   });
 });
@@ -168,6 +209,8 @@ app.use("/users", cacheMiddleware, userRouter);
 app.use("/manageUsers", cacheMiddleware,  manageUserRouter);
 app.use("/dashboard", cacheMiddleware, dashboardRouter);
 app.use("/featured-students", cacheMiddleware, featuredStudentRouter);
+app.use('/grades', gradesRouter); 
+app.use('/student-profile', studentProfileRouter);
 app.use(express.static('/home/ahodifer/www/iap-m.com'));
 
 // app.use(express.static(path.join(__dirname, '../../../IAPM-front/IAP-M-frontend/build')));

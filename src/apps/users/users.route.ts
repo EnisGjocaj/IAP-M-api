@@ -6,8 +6,8 @@ const userRouter = express.Router();
 
 // Register User
 userRouter.post('/register', async (req: Request, res: Response) => {
-  const { name, surname, email, password } = req.body;
-  const result = await userService.registerUser({ name, surname, email, password });
+  const { name, surname, email, password, isStudent } = req.body;
+  const result = await userService.registerUser({ name, surname, email, password, isStudent });
   return res.status(result.statusCode).json(result.message);
 });
 

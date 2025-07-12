@@ -5,27 +5,60 @@ import jwt from 'jsonwebtoken';
 const prisma = new PrismaClient();
 
 export class UserService {
-  async registerUser(data: { name: string; surname: string; email: string; password: string }) {
+  async registerUser(data: { 
+    name: string; 
+    surname: string; 
+    email: string; 
+    password: string;
+    isStudent: boolean; 
+  }) {
     try {
       const hashedPassword = await bcrypt.hash(data.password, 10);
 
-      const user = await prisma.user.create({
-        data: {
-          name: data.name,
-          surname: data.surname,
-          email: data.email,
-          password: hashedPassword,
-          role: UserRole.CLIENT, 
-        },
+      
+      const result = await prisma.$transaction(async (tx) => {
+        // Create the user
+        const user = await tx.user.create({
+          data: {
+            name: data.name,
+            surname: data.surname,
+            email: data.email,
+            password: hashedPassword,
+            role: UserRole.CLIENT,
+            isStudent: data.isStudent,
+          },
+        });
+
+        // If user is a student, create their profile
+        if (data.isStudent) {
+          await tx.studentProfile.create({
+            data: {
+              userId: user.id,
+              
+              university: '',
+              faculty: '',
+              year: '',
+              bio: '',
+            }
+          });
+        }
+
+        return user;
       });
 
       const token = jwt.sign(
-        { userId: user.id, role: user.role },
+        { userId: result.id, role: result.role, isStudent: result.isStudent },
         process.env.JWT_SECRET!,
         { expiresIn: '1h' }
       );
 
-      return { statusCode: 201, message: { token, user: { ...user, password: undefined } } };
+      return { 
+        statusCode: 201, 
+        message: { 
+          token, 
+          user: { ...result, password: undefined } 
+        } 
+      };
     } catch (error: any) {
       if (error.code === 'P2002') {
         return { statusCode: 400, message: 'Email already exists' };
@@ -37,13 +70,16 @@ export class UserService {
   async loginUser(data: { email: string; password: string }) {
     try {
       const user = await prisma.user.findUnique({
-        where: { email: data.email },
+        where: { 
+          email: data.email  
+        },
         select: {
           id: true,
           email: true,
           name: true,
           surname: true,
           role: true,
+          isStudent: true,
           password: true,
         },
       });
@@ -58,12 +94,15 @@ export class UserService {
       }
 
       const token = jwt.sign(
-        { userId: user.id, role: user.role },
+        { 
+          userId: user.id, 
+          role: user.role,
+          isStudent: user.isStudent 
+        },
         process.env.JWT_SECRET!,
         { expiresIn: '1h' }
       );
 
-      // Remove password from user object
       const { password, ...userWithoutPassword } = user;
 
       return { 

@@ -40,6 +40,7 @@
     "node-cache": "^5.1.2",
     "nodemailer": "^6.9.15",
     "prisma": "^5.19.1",
+    "puppeteer": "^24.12.1",
     "reflect-metadata": "^0.2.2",
     "tsyringe": "^4.8.0"
   },
