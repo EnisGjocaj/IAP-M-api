@@ -18,10 +18,20 @@ export class ManageUserService {
 
   async getUserById(userId: string) {
     try {
-      const user = await prisma.user.findUnique({ where: { id: Number(userId) } });
+      if (!userId) {
+        return { statusCode: 400, message: 'User ID is required' };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { 
+          id: parseInt(userId, 10) 
+        }
+      });
+
       if (!user) {
         return { statusCode: 404, message: 'User not found' };
       }
+
       return { statusCode: 200, message: user };
     } catch (error: any) {
       return { statusCode: 500, message: error.message };
@@ -69,4 +79,54 @@ export class ManageUserService {
     }
   }
   
+  
+  async getAllStudents() {
+    try {
+      console.log('Fetching students...');
+      
+      const students = await prisma.user.findMany({
+        where: {
+          isStudent: true
+        },
+        include: {
+          studentProfile: {
+            select: {
+              id: true,  
+              university: true,
+              faculty: true,
+              year: true,
+              gpa: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      console.log('Found students:', students); 
+      return {
+        statusCode: 200,
+        data: students.map(student => ({
+          id: student.id,
+          name: student.name,
+          surname: student.surname || '',
+          email: student.email,
+          createdAt: student.createdAt,
+          studentProfile: student.studentProfile || {
+            university: 'Not specified',
+            faculty: 'Not specified',
+            year: 'Not specified',
+            gpa: 0
+          }
+        }))
+      };
+    } catch (error) {
+      console.error('Error in getAllStudents:', error);
+      return {
+        statusCode: 500,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
+  }
 }

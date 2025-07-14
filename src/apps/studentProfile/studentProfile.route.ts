@@ -1,70 +1,95 @@
 import express, { Request, Response } from 'express';
 import { StudentProfileService } from './studentProfile.service';
 import { authenticateJWT } from '../middleware/authMiddleware';
-import { authenticateStudent } from '../middleware/studentAuthMiddleware';
 import multer from 'multer';
 
-const studentProfileService = new StudentProfileService();
 const studentProfileRouter = express.Router();
+const studentProfileService = new StudentProfileService();
 
-// Configure multer for memory storage
-const upload = multer({ storage: multer.memoryStorage() });
+studentProfileRouter.use(authenticateJWT);
 
-// All routes should be protected for students only
-studentProfileRouter.use(authenticateStudent);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+   
+    if (file.fieldname === 'cv') {
+      if (file.mimetype === 'application/pdf' || 
+          file.mimetype === 'application/msword' || 
+          file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        cb(null, true);
+      } else {
+        cb(null, false);
+      }
+    }
+    // Accept image files
+    else if (file.fieldname === 'profileImage') {
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(null, false);
+      }
+    } else {
+      cb(null, false);
+    }
+  }
+});
 
 // Get student profile
 studentProfileRouter.get('/:userId', async (req: Request, res: Response) => {
   try {
-    const result = await studentProfileService.getStudentProfile(req.params.userId);
-    return res.status(result.statusCode).json(result.message);
-  } catch (error) {
-    console.error('Error fetching student profile:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    const { userId } = req.params;
+    const result = await studentProfileService.getStudentProfile(userId);
+    res.status(result.statusCode).json(result.message);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
   }
 });
 
+// Add this new route
+studentProfileRouter.get('/', async (req: Request, res: Response) => {
+  try {
+    const result = await studentProfileService.getAllStudentProfiles();
+    res.status(result.statusCode).json(result);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Update to handle both file uploads and regular updates
 studentProfileRouter.put('/:userId', 
-  upload.single('profileImage'),
+  authenticateJWT,
+  upload.fields([
+    { name: 'cv', maxCount: 1 },
+    { name: 'profileImage', maxCount: 1 }
+  ]),
   async (req: Request, res: Response) => {
     try {
-      // Log incoming request
-      console.log('Received update request:', {
+      console.log('Update request received:', {
         body: req.body,
-        file: req.file,
+        files: req.files,
         params: req.params
       });
 
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      
       const updateData = {
         ...req.body,
-        profileImage: req.file,
-        // Convert numeric fields properly
-        gpa: req.body.gpa ? parseFloat(req.body.gpa) : undefined,
-        attendance: req.body.attendance ? parseFloat(req.body.attendance) : undefined,
-        totalCredits: req.body.totalCredits ? parseInt(req.body.totalCredits) : undefined,
-        // Make sure these fields are included
-        university: req.body.university || undefined,
-        faculty: req.body.faculty || undefined,
-        year: req.body.year || undefined,
-        bio: req.body.bio || undefined,
-        location: req.body.location || undefined,
-        phoneNumber: req.body.phoneNumber || undefined,
-        linkedinUrl: req.body.linkedinUrl || undefined,
-        githubUrl: req.body.githubUrl || undefined,
-        portfolioUrl: req.body.portfolioUrl || undefined,
+        cv: files?.cv?.[0],
+        profileImage: files?.profileImage?.[0]
       };
 
-      console.log('Processed update data:', updateData);
+      const result = await studentProfileService.updateStudentProfile(
+        req.params.userId, 
+        updateData
+      );
 
-      const result = await studentProfileService.updateStudentProfile(req.params.userId, updateData);
-      
-      // Log the result
-      console.log('Update result:', result);
-      
       return res.status(result.statusCode).json(result.message);
     } catch (error: any) {
-      console.error('Error updating student profile:', error);
-      return res.status(500).json({ message: 'Internal server error', error: error.message });
+      console.error('Error updating profile:', error);
+      return res.status(500).json({ 
+        message: 'Internal server error', 
+        error: error.message 
+      });
     }
   }
 );

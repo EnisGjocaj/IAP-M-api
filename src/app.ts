@@ -20,8 +20,8 @@ import NodeCache from 'node-cache';
 import { TeamMemberService } from './apps/teamMember/teamMember.service';
 import { NewsService } from './apps/news/news.service';
 import featuredStudentRouter from './apps/featuredStudent/featuredStudent.route';
-import gradesRouter from './apps/smu/grades.route';
 import studentProfileRouter from './apps/studentProfile/studentProfile.route';
+import trainingRouter from './apps/training/training.route';
 
 const cache = new NodeCache({ stdTTL: 60 * 5 });
 
@@ -85,11 +85,13 @@ app.get('/news/:id', async (req, res) => {
   });
 });
 
-app.get('/bord/:id', async (req, res) => {
+app.get('/bord/team/:id', async (req, res) => {  
   const memberId = req.params.id;
   const result = await teamMemberService.getTeamMemberById(memberId);
+  console.log('Team member fetch result:', result);
   
   if (result.statusCode !== 200) {
+    console.log('Team member not found for ID:', memberId);
     return res.sendFile(path.join(
       __dirname,
       '../../IAPM-front/IAP-M-frontend/build',
@@ -102,24 +104,37 @@ app.get('/bord/:id', async (req, res) => {
   
   fs.readFile(indexFile, 'utf8', (err, htmlData) => {
     if (err) {
+      console.error('Error reading index.html:', err);
       return res.status(500).send('Error reading index.html');
     }
     
-    const title = `${member.fullName} - ${member.title}`;
-    const description = member.description;
-    const imageUrl = member.imagePath?.startsWith('http') ? member.imagePath : `https://iap-m.com${member.imagePath}`;
-    const url = `https://iap-m.com/bord/${memberId}`;
+    const nameParts = member.fullName.split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ');
     
+    const title = `${member.fullName} - ${member.title} | IAP-M Team Member`;
+    const description = member.description || `Learn more about ${member.fullName}, ${member.title} at IAP-M`;
+    const imageUrl = member.imagePath?.startsWith('http') ? 
+      member.imagePath : 
+      `https://iap-m.com${member.imagePath}`;
+    const url = `https://iap-m.com/bord/team/${memberId}`;
+    
+    // More precise regex patterns
     let customHtml = htmlData
-      .replace(/<title>.*<\/title>/, `<title>${title}</title>`)
-      .replace(/<meta property="og:title" content=".*?"/, `<meta property="og:title" content="${title}"`)
-      .replace(/<meta property="og:description" content=".*?"/, `<meta property="og:description" content="${description}"`)
-      .replace(/<meta property="og:image" content=".*?"/, `<meta property="og:image" content="${imageUrl}"`)
-      .replace(/<meta property="og:url" content=".*?"/, `<meta property="og:url" content="${url}"`)
-      .replace(/<meta name="twitter:title" content=".*?"/, `<meta name="twitter:title" content="${title}"`)
-      .replace(/<meta name="twitter:description" content=".*?"/, `<meta name="twitter:description" content="${description}"`)
-      .replace(/<meta name="twitter:image" content=".*?"/, `<meta name="twitter:image" content="${imageUrl}"`);
-    
+      .replace(/<title>[^<]*<\/title>/i, `<title>${title}</title>`)
+      .replace(/<meta[^>]*property="og:type"[^>]*>/i, `<meta property="og:type" content="profile" />`)
+      .replace(/<meta[^>]*property="og:title"[^>]*>/i, `<meta property="og:title" content="${title}" />`)
+      .replace(/<meta[^>]*property="og:description"[^>]*>/i, `<meta property="og:description" content="${description}" />`)
+      .replace(/<meta[^>]*property="og:image"[^>]*>/i, `<meta property="og:image" content="${imageUrl}" />`)
+      .replace(/<meta[^>]*property="og:url"[^>]*>/i, `<meta property="og:url" content="${url}" />`)
+      .replace(/<meta[^>]*property="profile:first_name"[^>]*>/i, `<meta property="profile:first_name" content="${firstName}" />`)
+      .replace(/<meta[^>]*property="profile:last_name"[^>]*>/i, `<meta property="profile:last_name" content="${lastName}" />`)
+      .replace(/<meta[^>]*property="profile:username"[^>]*>/i, `<meta property="profile:username" content="${member.fullName}" />`)
+      .replace(/<meta[^>]*property="profile:title"[^>]*>/i, `<meta property="profile:title" content="${member.title}" />`)
+      .replace(/<meta[^>]*name="twitter:title"[^>]*>/i, `<meta name="twitter:title" content="${title}" />`)
+      .replace(/<meta[^>]*name="twitter:description"[^>]*>/i, `<meta name="twitter:description" content="${description}" />`)
+      .replace(/<meta[^>]*name="twitter:image"[^>]*>/i, `<meta name="twitter:image" content="${imageUrl}" />`);
+
     res.send(customHtml);
   });
 });
@@ -201,19 +216,139 @@ function cacheMiddleware(req: express.Request, res: express.Response, next: expr
   }
 }
 
+// First, API routes
 app.use('/api/news', cacheMiddleware, newsRouter);
+app.use('/team-members', cacheMiddleware, teamMemberRouter);
 app.use('/applications', cacheMiddleware, applicationRouter);
 app.use('/job-listings', jobListingRouter); 
-app.use("/team-members", cacheMiddleware, teamMemberRouter);
 app.use("/users", cacheMiddleware, userRouter);
 app.use("/manageUsers", cacheMiddleware,  manageUserRouter);
 app.use("/dashboard", cacheMiddleware, dashboardRouter);
+app.use('/training-programs-iap', trainingRouter);
 app.use("/featured-students", cacheMiddleware, featuredStudentRouter);
-app.use('/grades', gradesRouter); 
 app.use('/student-profile', studentProfileRouter);
-app.use(express.static('/home/ahodifer/www/iap-m.com'));
 
-// app.use(express.static(path.join(__dirname, '../../../IAPM-front/IAP-M-frontend/build')));
 
+// Create a middleware to check if request is for static file
+const isStaticFile = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const ext = path.extname(req.path);
+  if (ext) {
+    // If path has extension, treat as static file
+    express.static('/home/ahodifer/www/iap-m.com')(req, res, next);
+  } else {
+    // If no extension, might be a route, continue to next middleware
+    next();
+  }
+};
+
+// Serve static files but only if they have an extension
+app.use(isStaticFile);
+
+// Then, special server-side rendered routes - ORDER MATTERSs!
+// Team member routes should come before news routes
+app.get('/bord/team/:id', async (req, res) => {  
+  console.log('🔍 TEAM MEMBER ROUTE HIT:', req.url);
+  const memberId = req.params.id;
+  const result = await teamMemberService.getTeamMemberById(memberId);
+  console.log('Team member fetch result:', result);
+  
+  if (result.statusCode !== 200) {
+    console.log('Team member not found for ID:', memberId);
+    return res.sendFile(path.join(
+      __dirname,
+      '../../IAPM-front/IAP-M-frontend/build',
+      'index.html'
+    ));
+  }
+  
+  const member = result.message;
+  const indexFile = '/home/ahodifer/www/iap-m.com/index.html';
+  
+  fs.readFile(indexFile, 'utf8', (err, htmlData) => {
+    if (err) {
+      console.error('Error reading index.html:', err);
+      return res.status(500).send('Error reading index.html');
+    }
+    
+    const nameParts = member.fullName.split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ');
+    
+    const title = `${member.fullName} - ${member.title} | IAP-M Team Member`;
+    const description = member.description || `Learn more about ${member.fullName}, ${member.title} at IAP-M`;
+    const imageUrl = member.imagePath?.startsWith('http') ? 
+      member.imagePath : 
+      `https://iap-m.com${member.imagePath}`;
+    const url = `https://iap-m.com/bord/team/${memberId}`;
+    
+    console.log('🔍 Setting team member meta tags:', {
+      title,
+      description: description.substring(0, 50) + '...',
+      imageUrl,
+      url
+    });
+
+    // Ensure we're not accidentally matching the news route's meta tags
+    let customHtml = htmlData
+      .replace(/<title>[^<]*<\/title>/i, `<title>${title}</title>`)
+      .replace(/<meta[^>]*property="og:type"[^>]*>/i, `<meta property="og:type" content="profile" />`)
+      .replace(/<meta[^>]*property="og:title"[^>]*>/i, `<meta property="og:title" content="${title}" />`)
+      .replace(/<meta[^>]*property="og:description"[^>]*>/i, `<meta property="og:description" content="${description}" />`)
+      .replace(/<meta[^>]*property="og:image"[^>]*>/i, `<meta property="og:image" content="${imageUrl}" />`)
+      .replace(/<meta[^>]*property="og:url"[^>]*>/i, `<meta property="og:url" content="${url}" />`)
+      .replace(/<meta[^>]*property="profile:first_name"[^>]*>/i, `<meta property="profile:first_name" content="${firstName}" />`)
+      .replace(/<meta[^>]*property="profile:last_name"[^>]*>/i, `<meta property="profile:last_name" content="${lastName}" />`)
+      .replace(/<meta[^>]*property="profile:username"[^>]*>/i, `<meta property="profile:username" content="${member.fullName}" />`)
+      .replace(/<meta[^>]*property="profile:title"[^>]*>/i, `<meta property="profile:title" content="${member.title}" />`)
+      .replace(/<meta[^>]*name="twitter:title"[^>]*>/i, `<meta name="twitter:title" content="${title}" />`)
+      .replace(/<meta[^>]*name="twitter:description"[^>]*>/i, `<meta name="twitter:description" content="${description}" />`)
+      .replace(/<meta[^>]*name="twitter:image"[^>]*>/i, `<meta name="twitter:image" content="${imageUrl}" />`);
+
+    console.log('🔍 Meta tags after replacement:', customHtml.match(/<meta[^>]*>/g)?.join('\n'));
+    
+    res.send(customHtml);
+  });
+});
+
+app.get('/news/:id', async (req, res) => {
+  console.log('⚠️ NEWS ROUTE HIT:', req.url);
+  const newsId = req.params.id;
+  const result = await newsService.getNewsById(newsId);
+  if (result.statusCode !== 200) {
+    return res.sendFile(path.join(
+      __dirname,
+      '../../IAPM-front/IAP-M-frontend/build',
+      'index.html'
+    ));
+  }
+  const news = result.message;
+  const indexFile = '/home/ahodifer/www/iap-m.com/index.html';
+  console.log('Trying to read index.html from:', indexFile);
+  fs.readFile(indexFile, 'utf8', (err, htmlData) => {
+    if (err) {
+      return res.status(500).send('Error reading index.html');
+    }
+    const title = news.title;
+    const description = news.content.split('\n').filter(Boolean).slice(0, 3).join(' ');
+    const imageUrl = news.imageUrl?.startsWith('http') ? news.imageUrl : `https://iap-m.com${news.imageUrl}`;
+    const url = `https://iap-m.com/news/${newsId}`;
+    let customHtml = htmlData
+      .replace(/<title>.*<\/title>/, `<title>${title}</title>`)
+      .replace(/<meta property="og:title" content=".*?"/, `<meta property="og:title" content="${title}"`)
+      .replace(/<meta property="og:description" content=".*?"/, `<meta property="og:description" content="${description}"`)
+      .replace(/<meta property="og:image" content=".*?"/, `<meta property="og:image" content="${imageUrl}"`)
+      .replace(/<meta property="og:url" content=".*?"/, `<meta property="og:url" content="${url}"`)
+      .replace(/<meta name="twitter:title" content=".*?"/, `<meta name="twitter:title" content="${title}"`)
+      .replace(/<meta name="twitter:description" content=".*?"/, `<meta name="twitter:description" content="${description}"`)
+      .replace(/<meta name="twitter:image" content=".*?"/, `<meta name="twitter:image" content="${imageUrl}"`);
+    res.send(customHtml);
+  });
+});
+
+// Catch-all route for SPA should be last
+app.get('*', (req, res) => {
+  console.log('⚠️ CATCH-ALL ROUTE HIT:', req.url);
+  res.sendFile(path.join('/home/ahodifer/www/iap-m.com', 'index.html'));
+});
 
 export default app;

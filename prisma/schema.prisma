@@ -23,11 +23,11 @@ model User {
   email     String   @unique
   password  String
   role      UserRole @default(CLIENT)
-  isStudent Boolean  @default(false)  // Add this field
+  isStudent Boolean  @default(false) 
   createdAt DateTime @default(now())
 
   applications Application[]
-  studentProfile StudentProfile?  // Add this relation
+  studentProfile StudentProfile?
 }
 
 
@@ -143,6 +143,59 @@ model FeaturedStudent {
   testimonial   String?     @db.Text  
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+
+  studentProfileId Int? @unique
+  studentProfile   StudentProfile? @relation(fields: [studentProfileId], references: [id])
+  trainingReviews TrainingReview[]
+}
+
+model Training {
+  id              Int       @id @default(autoincrement())
+  title           String
+  description     String?   @db.Text
+  category        String
+  level           String    
+  instructor      String
+  totalHours      Int
+  startDate       DateTime
+  endDate         DateTime
+  maxParticipants Int?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  enrollments     StudentTrainingEnrollment[]
+  reviews         TrainingReview[]
+}
+
+model StudentTrainingEnrollment {
+  id              Int       @id @default(autoincrement())
+  trainingId      Int
+  profileId       Int
+  enrollmentDate  DateTime  @default(now())
+  status          TrainingStatus // ENROLLED, IN_PROGRESS, COMPLETED, DROPPED
+  progress        Int       @default(0) // 0-100
+  completionDate  DateTime?
+  certificateUrl  String?
+  attendance      Int       @default(0) // Track attendance percentage
+  grade          Float?    // Optional final grade
+  feedback       String?   @db.Text // Admin/Instructor feedback
+
+  // Relations
+  training        Training       @relation(fields: [trainingId], references: [id])
+  profile         StudentProfile @relation(fields: [profileId], references: [id])
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([trainingId, profileId]) // Prevent duplicate enrollments
+}
+
+enum TrainingStatus {
+  ENROLLED
+  IN_PROGRESS
+  COMPLETED
+  DROPPED
 }
 
 model StudentProfile {
@@ -156,21 +209,27 @@ model StudentProfile {
   location        String?
   phoneNumber     String?
   linkedinUrl     String?
+  facebookUrl     String?
   githubUrl       String?
   portfolioUrl    String?
   profileImage    String?
+  cvPath          String?  
   attendance      Float?    @default(0)
   totalCredits    Int?      @default(0)
   
   user            User      @relation(fields: [userId], references: [id])
   skills          StudentSkill[]
   badges          StudentBadge[]
-  trainings       StudentTraining[]
+  trainings       StudentTrainingEnrollment[]
   testimonials    StudentTestimonial[]
   academicSubjects StudentSubject[]
+  featuredStudent FeaturedStudent?
+  trainingReviews TrainingReview[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  StudentTraining StudentTraining[]
 }
 
 model StudentSkill {
@@ -225,5 +284,24 @@ model StudentSubject {
   semester        String
   profileId       Int
   profile         StudentProfile @relation(fields: [profileId], references: [id])
+}
+
+model TrainingReview {
+  id              Int       @id @default(autoincrement())
+  content         String    @db.Text
+  rating          Int       // 1-5 rating
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  trainingId      Int
+  training        Training  @relation(fields: [trainingId], references: [id])
+  studentProfileId Int
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id])
+  
+  featuredStudentId Int?
+  featuredStudent   FeaturedStudent? @relation(fields: [featuredStudentId], references: [id])
+
+  @@unique([trainingId, studentProfileId]) 
 }
 

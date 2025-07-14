@@ -19,12 +19,19 @@ export class TeamMemberService {
 
   async getTeamMemberById(teamMemberId: string) {
     try {
-      const teamMember = await prisma.teamMember.findUnique({ where: { id: Number(teamMemberId) } });
+      console.log('Fetching team member with ID:', teamMemberId);
+      const teamMember = await prisma.teamMember.findUnique({ 
+        where: { id: Number(teamMemberId) } 
+      });
+      console.log('Found team member:', teamMember);
+      
       if (!teamMember) {
+        console.log('Team member not found');
         return { statusCode: 404, message: 'Team member not found' };
       }
       return { statusCode: 200, message: teamMember };
     } catch (error: any) {
+      console.error('Error in getTeamMemberById:', error);
       return { statusCode: 500, message: error.message };
     }
   }

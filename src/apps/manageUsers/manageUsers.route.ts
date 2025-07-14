@@ -4,6 +4,21 @@ import { ManageUserService } from './manageUsers.service';
 const manageUserService = new ManageUserService();
 const manageUserRouter = express.Router();
 
+manageUserRouter.get('/students', async (req: Request, res: Response) => {
+  try {
+    const result = await manageUserService.getAllStudents();
+    
+    if (result.statusCode === 200) {
+      return res.status(200).json({ data: result.data });
+    } else {
+      return res.status(result.statusCode).json({ error: result.error });
+    }
+  } catch (error) {
+    console.error('Error in students route:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get all users
 manageUserRouter.get('/', async (req: Request, res: Response) => {
   try {
@@ -15,7 +30,7 @@ manageUserRouter.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// Get user by ID
+// Get user by ID - Move this AFTER the /students route
 manageUserRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const user = await manageUserService.getUserById(req.params.id);
@@ -32,9 +47,8 @@ manageUserRouter.get('/:id', async (req: Request, res: Response) => {
 // Create user
 manageUserRouter.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, surname, email, password } = req.body; // Get form fields from req.body
+    const { name, surname, email, password } = req.body;
 
-    // Create the user
     const user = await manageUserService.createUser({
       name,
       surname,
@@ -70,7 +84,6 @@ manageUserRouter.delete('/:id', async (req: Request, res: Response) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 });
-
 
 
 export default manageUserRouter;

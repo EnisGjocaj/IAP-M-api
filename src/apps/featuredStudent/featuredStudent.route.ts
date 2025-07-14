@@ -60,7 +60,7 @@ featuredStudentRouter.post('/', upload.single('image'), authenticateJWT, async (
 
     const data = {
       ...req.body,
-      achievements, // Use the parsed achievements
+      achievements, 
       image: req.file
     };
 
@@ -72,10 +72,9 @@ featuredStudentRouter.post('/', upload.single('image'), authenticateJWT, async (
   }
 });
 
-// Update featured student (protected route)
 featuredStudentRouter.put('/:id', authenticateJWT, upload.single('image'), async (req: Request, res: Response) => {
   try {
-    // Parse achievements if they exist in the request body
+    
     let achievements = [];
     if (req.body.achievements) {
       try {
@@ -136,6 +135,17 @@ featuredStudentRouter.get('/top/:limit?', async (req: Request, res: Response) =>
     return res.status(result.statusCode).json(result.message);
   } catch (error) {
     console.error('Error fetching top students:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+featuredStudentRouter.get('/:id/cv', async (req: Request, res: Response) => {
+  try {
+    const result = await featuredStudentService.getStudentProfileCV(req.params.id);
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    console.error('Error fetching student CV:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });

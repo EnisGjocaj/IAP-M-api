@@ -18,10 +18,14 @@ userRouter.post('/login', async (req: Request, res: Response) => {
   return res.status(result.statusCode).json(result.message);
 });
 
-// Get User By ID (protected route example)
 userRouter.get('/:id', authenticateJWT, async (req: Request, res: Response) => {
   const userId = req.params.id;
   const result = await userService.getUserById(userId);
+  return res.status(result.statusCode).json(result.message);
+});
+
+userRouter.get('/students', authenticateJWT, async (req: Request, res: Response) => {
+  const result = await userService.getStudents();
   return res.status(result.statusCode).json(result.message);
 });
 

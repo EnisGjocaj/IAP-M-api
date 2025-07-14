@@ -29,7 +29,6 @@ export class UserService {
           },
         });
 
-        // If user is a student, create their profile
         if (data.isStudent) {
           await tx.studentProfile.create({
             data: {
@@ -127,6 +126,33 @@ export class UserService {
       if (!user) return { statusCode: 404, message: 'User not found' };
       return { statusCode: 200, message: user };
     } catch (error: any) {
+      return { statusCode: 500, message: 'Internal server error' };
+    }
+  }
+
+  async getStudents() {
+    try {
+      const students = await prisma.user.findMany({
+        where: {
+          isStudent: true
+        },
+        include: {
+          studentProfile: true 
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      return { 
+        statusCode: 200, 
+        message: students.map(student => ({
+          ...student,
+          password: undefined 
+        }))
+      };
+    } catch (error) {
+      console.error('Error fetching students:', error);
       return { statusCode: 500, message: 'Internal server error' };
     }
   }

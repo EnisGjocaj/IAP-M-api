@@ -17,6 +17,8 @@ interface FeaturedStudentData {
   linkedinUrl?: string;
   testimonial?: string;
   isActive?: boolean | string;
+  cvPath?: string; 
+  studentProfileId?: number;
 }
 
 export class FeaturedStudentService {
@@ -48,14 +50,74 @@ export class FeaturedStudentService {
 
   async getAllFeaturedStudents() {
     try {
-      const students = await prisma.featuredStudent.findMany({
-        orderBy: {
-          createdAt: 'desc'
+      const featuredStudents = await prisma.featuredStudent.findMany({
+        where: {
+          isActive: true
+        },
+        include: {
+          studentProfile: {
+            select: {
+              cvPath: true,
+              user: {
+                select: {
+                  email: true
+                }
+              }
+            }
+          }
         }
       });
-      return { statusCode: 200, message: students };
-    } catch (error: any) {
-      return { statusCode: 500, message: error.message };
+
+      for (const student of featuredStudents) {
+        if (!student.studentProfileId) {
+          // Find student profile by email
+          const studentProfile = await prisma.studentProfile.findFirst({
+            where: {
+              user: {
+                email: student.email
+              }
+            }
+          });
+
+          if (studentProfile) {
+            await prisma.featuredStudent.update({
+              where: { id: student.id },
+              data: {
+                studentProfileId: studentProfile.id
+              }
+            });
+          }
+        }
+      }
+
+      const updatedFeaturedStudents = await prisma.featuredStudent.findMany({
+        where: {
+          isActive: true
+        },
+        include: {
+          studentProfile: {
+            select: {
+              cvPath: true
+            }
+          }
+        }
+      });
+
+      const mappedStudents = updatedFeaturedStudents.map(student => ({
+        ...student,
+        cvPath: student.studentProfile?.cvPath || null
+      }));
+
+      return {
+        statusCode: 200,
+        message: mappedStudents
+      };
+    } catch (error) {
+      console.error('Error fetching featured students:', error);
+      return {
+        statusCode: 500,
+        message: []
+      };
     }
   }
 
@@ -117,6 +179,18 @@ export class FeaturedStudentService {
 
       const imagePath = image ? await this.uploadImage(image) : null;
 
+      // Find student profile by email
+      const studentProfile = await prisma.studentProfile.findFirst({
+        where: {
+          user: {
+            email: studentData.email
+          }
+        },
+        include: {
+          user: true
+        }
+      });
+
       const newStudent = await prisma.featuredStudent.create({
         data: {
           ...studentData,
@@ -126,12 +200,25 @@ export class FeaturedStudentService {
           achievements: achievements,
           isActive: typeof studentData.isActive === 'string' 
             ? studentData.isActive === 'true'
-            : !!studentData.isActive
+            : !!studentData.isActive,
+          studentProfileId: studentProfile?.id || null  
+        },
+        include: {
+          studentProfile: {
+            select: {
+              cvPath: true
+            }
+          }
         }
       });
 
-      console.log('Created student achievements:', newStudent.achievements);
-      return { statusCode: 201, message: newStudent };
+      return { 
+        statusCode: 201, 
+        message: {
+          ...newStudent,
+          cvPath: newStudent.studentProfile?.cvPath || null
+        }
+      };
     } catch (error: any) {
       console.error('Error creating featured student:', error);
       console.error('Error details:', error.message);
@@ -233,6 +320,56 @@ export class FeaturedStudentService {
       return { statusCode: 200, message: students };
     } catch (error: any) {
       return { statusCode: 500, message: error.message };
+    }
+  }
+
+  async getStudentProfileCV(studentId: string) {
+    try {
+      const featuredStudent = await prisma.featuredStudent.findUnique({
+        where: { id: Number(studentId) },
+        include: {
+          studentProfile: {
+            select: {
+              cvPath: true,
+              user: {
+                select: {
+                  name: true,
+                  surname: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!featuredStudent) {
+        return { 
+          statusCode: 404, 
+          message: 'Featured student not found' 
+        };
+      }
+
+      if (!featuredStudent.studentProfile?.cvPath) {
+        return { 
+          statusCode: 404, 
+          message: 'No CV found for this student' 
+        };
+      }
+
+      return { 
+        statusCode: 200, 
+        message: {
+          cvPath: featuredStudent.studentProfile.cvPath,
+          name: featuredStudent.studentProfile.user.name,
+          surname: featuredStudent.studentProfile.user.surname
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching student CV:', error);
+      return { 
+        statusCode: 500, 
+        message: 'Error fetching student CV' 
+      };
     }
   }
 } 
