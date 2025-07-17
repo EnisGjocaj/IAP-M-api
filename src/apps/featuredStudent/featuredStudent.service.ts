@@ -58,9 +58,25 @@ export class FeaturedStudentService {
           studentProfile: {
             select: {
               cvPath: true,
+              trainings: {
+                select: {
+                  grade: true
+                }
+              },
               user: {
                 select: {
                   email: true
+                }
+              }
+            }
+          },
+          trainingReviews: {
+            include: {
+              training: {
+                select: {
+                  title: true,
+                  category: true,
+                  level: true
                 }
               }
             }
@@ -97,7 +113,17 @@ export class FeaturedStudentService {
         include: {
           studentProfile: {
             select: {
-              cvPath: true
+              cvPath: true,
+              trainings: {
+                select: {
+                  grade: true
+                }
+              }
+            }
+          },
+          trainingReviews: {
+            include: {
+              training: true
             }
           }
         }
@@ -105,7 +131,10 @@ export class FeaturedStudentService {
 
       const mappedStudents = updatedFeaturedStudents.map(student => ({
         ...student,
-        cvPath: student.studentProfile?.cvPath || null
+        cvPath: student.studentProfile?.cvPath || null,
+        trainingReviews: student.trainingReviews || [],
+        grade: student.studentProfile?.trainings?.[0]?.grade || null
+
       }));
 
       return {

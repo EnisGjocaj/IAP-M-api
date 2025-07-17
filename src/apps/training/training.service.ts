@@ -144,7 +144,6 @@ export class TrainingService {
     }
   }
 
-  // Update student enrollment status
   async updateEnrollmentStatus(
     trainingId: string,
     profileId: string,
@@ -162,9 +161,19 @@ export class TrainingService {
     try {
       const grade = data.rating ? data.rating * 20 : data.grade;
 
-      // Start a transaction to update both enrollment and create review
       const result = await prisma.$transaction(async (prisma) => {
-        // Update enrollment
+        const studentProfile = await prisma.studentProfile.findUnique({
+          where: { id: Number(profileId) },
+          include: {
+            featuredStudent: true
+          }
+        });
+
+        console.log('Found student profile:', {
+          profileId,
+          featuredStudentId: studentProfile?.featuredStudent?.id
+        });
+
         const enrollment = await prisma.studentTrainingEnrollment.update({
           where: {
             trainingId_profileId: {
@@ -184,9 +193,8 @@ export class TrainingService {
           },
         });
 
-        // If rating is provided, create a review
         if (data.rating) {
-          await prisma.trainingReview.upsert({
+          const review = await prisma.trainingReview.upsert({
             where: {
               trainingId_studentProfileId: {
                 trainingId: Number(trainingId),
@@ -196,14 +204,18 @@ export class TrainingService {
             update: {
               rating: data.rating,
               content: data.feedback || '',
+              featuredStudentId: studentProfile?.featuredStudent?.id
             },
             create: {
               trainingId: Number(trainingId),
               studentProfileId: Number(profileId),
               rating: data.rating,
               content: data.feedback || '',
+              featuredStudentId: studentProfile?.featuredStudent?.id
             }
           });
+
+          console.log('Created/Updated review:', review);
         }
 
         return enrollment;
@@ -216,7 +228,6 @@ export class TrainingService {
     }
   }
 
-  // Get all enrollments for a training
   async getTrainingEnrollments(trainingId: string) {
     try {
       console.log('Fetching enrollments for training ID:', trainingId);
@@ -241,22 +252,33 @@ export class TrainingService {
                   name: true,
                   email: true
                 }
+              },
+              
+              trainingReviews: {
+                where: {
+                  trainingId: Number(trainingId)
+                }
               }
             }
           },
-          training: true // Include full training details
+          training: true 
         },
         orderBy: {
           enrollmentDate: 'desc'
         }
-      });
+      }) || [];
 
-      // Calculate actual status based on dates
+     
+      const enrollmentsWithReviews = enrollments.map(enrollment => ({
+        ...enrollment,
+        trainingReviews: enrollment.profile?.trainingReviews || []
+      }));
+
       const now = new Date();
-      const startDate = new Date(training.startDate);
-      const endDate = new Date(training.endDate);
+      const startDate = training.startDate ? new Date(training.startDate) : now;
+      const endDate = training.endDate ? new Date(training.endDate) : now;
 
-      const enrollmentsWithStatus = enrollments.map(enrollment => ({
+      const enrollmentsWithStatus = enrollmentsWithReviews.map(enrollment => ({
         ...enrollment,
         calculatedStatus: !training.isActive ? "INACTIVE" :
                          now < startDate ? "UPCOMING" :
