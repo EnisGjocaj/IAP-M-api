@@ -1,10 +1,48 @@
 import { PrismaClient } from '@prisma/client';
 import { supabase } from '../../supabase.config';
+import { v2 as cloudinary } from 'cloudinary';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const prisma = new PrismaClient();
 
 export class NewsService {
   private readonly BUCKET_NAME = 'news-images';
+
+  // Helper function to upload to Cloudinary with social media optimization
+  private async uploadToCloudinary(buffer: Buffer, fileName: string) {
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'news-social',
+          public_id: fileName,
+          transformation: [
+            { 
+              width: 1400, 
+              height: 788,  // Perfect 16:9 aspect ratio
+              crop: 'fill', 
+              gravity: 'auto',  
+              aspect_ratio: "16:9" 
+            },
+            { quality: 'auto:good' },
+            { fetch_format: 'auto' }
+          ],
+          tags: ['social_media']
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+
+      const bufferStream = require('stream').Readable.from(buffer);
+      bufferStream.pipe(uploadStream);
+    });
+  }
 
   async getAllNews() {
     try {
@@ -67,11 +105,11 @@ export class NewsService {
     for (const file of files) {
       try {
         const fileExt = file.originalname.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
         
         const { data, error } = await supabase.storage
           .from(this.BUCKET_NAME)
-          .upload(fileName, file.buffer, {
+          .upload(`${fileName}.${fileExt}`, file.buffer, {
             contentType: file.mimetype,
             cacheControl: '3600'
           });
@@ -80,9 +118,15 @@ export class NewsService {
 
         const { data: { publicUrl } } = supabase.storage
           .from(this.BUCKET_NAME)
-          .getPublicUrl(fileName);
+          .getPublicUrl(`${fileName}.${fileExt}`);
 
-        uploadedUrls.push(publicUrl);
+        // Upload to Cloudinary for social media
+        const cloudinaryResult: any = await this.uploadToCloudinary(file.buffer, fileName);
+
+        uploadedUrls.push({
+          url: publicUrl,
+          socialUrl: cloudinaryResult.secure_url
+        });
       } catch (error: any) {
         console.error(`Error uploading image: ${error.message}`);
       }
@@ -94,18 +138,17 @@ export class NewsService {
   async createNews(data: { title: string; content: string; images?: Express.Multer.File[] }) {
     try {
       let mainImageUrl = '';
-      let additionalImages: string[] = [];
+      let mainSocialUrl = '';
+      let additionalImages: any[] = [];
       
       if (data.images && data.images.length > 0) {
-        // Upload all images
         const uploadedUrls = await this.uploadMultipleImages(data.images);
         
-        // Set first image as main image for backward compatibility
-        mainImageUrl = uploadedUrls[0];
+        mainImageUrl = uploadedUrls[0].url;
+        mainSocialUrl = uploadedUrls[0].socialUrl;
         additionalImages = uploadedUrls.slice(1);
       }
 
-      // Create news with main image (backward compatible) when we had one image only
       const newNewsItem = await prisma.news.create({
         data: {
           title: data.title,
@@ -113,9 +156,15 @@ export class NewsService {
           imageUrl: mainImageUrl,
           images: {
             create: [
-              { url: mainImageUrl, isMain: true, order: 0 },
-              ...additionalImages.map((url, index) => ({
-                url,
+              { 
+                url: mainImageUrl, 
+                socialUrl: mainSocialUrl,
+                isMain: true, 
+                order: 0 
+              },
+              ...additionalImages.map((img, index) => ({
+                url: img.url,
+                socialUrl: img.socialUrl, 
                 isMain: false,
                 order: index + 1
               }))
@@ -162,23 +211,44 @@ export class NewsService {
   async deleteNews(newsId: string) {
     try {
       const news = await prisma.news.findUnique({
-        where: { id: Number(newsId) }
+        where: { id: Number(newsId) },
+        include: {
+          images: true
+        }
       });
 
-      if (news?.imageUrl) {
-        const fileName = news.imageUrl.split('/').pop();
-        if (fileName) {
-          await supabase.storage
-            .from(this.BUCKET_NAME)
-            .remove([fileName]);
-        }
+      if (!news) {
+        throw new Error('News not found');
       }
 
-      const deletedNews = await prisma.news.delete({
-        where: { id: Number(newsId) }
+      // Start a transaction to delete everything
+      await prisma.$transaction(async (tx) => {
+        // 1. Delete all associated images from Supabase
+        for (const image of news.images) {
+          const fileName = image.url.split('/').pop();
+          if (fileName) {
+            await supabase.storage
+              .from(this.BUCKET_NAME)
+              .remove([fileName]);
+          }
+        }
+
+        // 2. Delete all NewsImage records first
+        await tx.newsImage.deleteMany({
+          where: {
+            newsId: Number(newsId)
+          }
+        });
+
+        // 3. Finally delete the news article
+        await tx.news.delete({
+          where: {
+            id: Number(newsId)
+          }
+        });
       });
 
-      return { statusCode: 200, message: deletedNews };
+      return { statusCode: 200, message: 'News deleted successfully' };
     } catch (error: any) {
       throw new Error(`Error deleting news: ${error.message}`);
     }

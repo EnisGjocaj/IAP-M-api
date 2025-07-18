@@ -23,6 +23,7 @@ import featuredStudentRouter from './apps/featuredStudent/featuredStudent.route'
 import studentProfileRouter from './apps/studentProfile/studentProfile.route';
 import trainingRouter from './apps/training/training.route';
 
+
 const cache = new NodeCache({ stdTTL: 60 * 5 });
 
 const teamMemberService = new TeamMemberService(); 
@@ -55,32 +56,52 @@ app.get('/news/:id', async (req, res) => {
   const newsId = req.params.id;
   const result = await newsService.getNewsById(newsId);
   if (result.statusCode !== 200) {
-    return res.sendFile(path.join(
-      __dirname,
-      '../../IAPM-front/IAP-M-frontend/build',
-      'index.html'
-    ));
+    return res.sendFile(path.join(__dirname, '../../IAPM-front/IAP-M-frontend/build', 'index.html'));
   }
   const news = result.message;
+  const mainImage = news.images.find((img: any) => img.isMain);
+  
+  // Use the social URL for meta tags if available
+  const imageUrl = mainImage?.socialUrl || mainImage?.url || news.imageUrl;
+  
   const indexFile = '/home/ahodifer/www/iap-m.com/index.html';
-  console.log('Trying to read index.html from:', indexFile);
+  
   fs.readFile(indexFile, 'utf8', (err, htmlData) => {
     if (err) {
       return res.status(500).send('Error reading index.html');
     }
     const title = news.title;
     const description = news.content.split('\n').filter(Boolean).slice(0, 3).join(' ');
-    const imageUrl = news.imageUrl?.startsWith('http') ? news.imageUrl : `https://iap-m.com${news.imageUrl}`;
-    const url = `https://iap-m.com/news/${newsId}`;
+    
+    // Modify image URL to ensure proper scaling
+    // const baseImageUrl = news.imageUrl?.startsWith('http') ? news.imageUrl : `https://iap-m.com${news.imageUrl}`;
+    // Change fit=crop to fit=contain and add position
+    // const imageUrl = baseImageUrl.includes('supabase.co') 
+    //   ? `${baseImageUrl.split('?')[0]}?width=1200&height=630&fit=contain&position=center`
+    //   : `${baseImageUrl}?width=1200&height=630&fit=contain&position=center`;
+    
     let customHtml = htmlData
       .replace(/<title>.*<\/title>/, `<title>${title}</title>`)
+      .replace(/<meta property="og:type" content=".*?"/, `<meta property="og:type" content="article"`)
       .replace(/<meta property="og:title" content=".*?"/, `<meta property="og:title" content="${title}"`)
       .replace(/<meta property="og:description" content=".*?"/, `<meta property="og:description" content="${description}"`)
       .replace(/<meta property="og:image" content=".*?"/, `<meta property="og:image" content="${imageUrl}"`)
-      .replace(/<meta property="og:url" content=".*?"/, `<meta property="og:url" content="${url}"`)
-      .replace(/<meta name="twitter:title" content=".*?"/, `<meta name="twitter:title" content="${title}"`)
-      .replace(/<meta name="twitter:description" content=".*?"/, `<meta name="twitter:description" content="${description}"`)
-      .replace(/<meta name="twitter:image" content=".*?"/, `<meta name="twitter:image" content="${imageUrl}"`);
+      .replace(/<meta property="og:image:width" content=".*?"/, `<meta property="og:image:width" content="1200"`)
+      .replace(/<meta property="og:image:height" content=".*?"/, `<meta property="og:image:height" content="630"`)
+      .replace(/<meta property="og:url" content=".*?"/, `<meta property="og:url" content="https://iap-m.com/news/${newsId}"`)
+      // Add additional scaling controls
+      .replace(/<meta property="og:image:type" content=".*?"/, `<meta property="og:image:type" content="image/jpeg"`)
+      .replace(/<meta property="og:image:alt" content=".*?"/, `<meta property="og:image:alt" content="${title}"`);
+
+    // Add these new meta tags if they don't exist
+    if (!customHtml.includes('og:image:aspect_ratio')) {
+      customHtml = customHtml.replace('</head>',
+        `<meta property="og:image:aspect_ratio" content="1.91"/>
+         <meta property="og:image:crop" content="false"/>
+         </head>`
+      );
+    }
+
     res.send(customHtml);
   });
 });
@@ -149,8 +170,14 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  const fileUrl = `/uploads/${req.file.filename}`; 
-  res.json({ url: fileUrl });
+
+  const fileUrl = `/uploads/${req.file.filename}`;
+  
+  res.json({ 
+    url: fileUrl,
+    // Add dimensions as query parameters for Facebook
+    socialUrl: `${fileUrl}?width=1200&height=630&fit=inside`
+  });
 });
 
 
@@ -227,6 +254,7 @@ app.use("/dashboard", cacheMiddleware, dashboardRouter);
 app.use('/training-programs-iap', trainingRouter);
 app.use("/featured-students", cacheMiddleware, featuredStudentRouter);
 app.use('/student-profile', studentProfileRouter);
+
 
 
 // Create a middleware to check if request is for static file
@@ -322,6 +350,11 @@ app.get('/news/:id', async (req, res) => {
     ));
   }
   const news = result.message;
+  const mainImage = news.images.find((img: any) => img.isMain);
+  
+  // Use the social URL for meta tags if available
+  const imageUrl = mainImage?.socialUrl || mainImage?.url || news.imageUrl;
+  
   const indexFile = '/home/ahodifer/www/iap-m.com/index.html';
   console.log('Trying to read index.html from:', indexFile);
   fs.readFile(indexFile, 'utf8', (err, htmlData) => {
@@ -330,13 +363,14 @@ app.get('/news/:id', async (req, res) => {
     }
     const title = news.title;
     const description = news.content.split('\n').filter(Boolean).slice(0, 3).join(' ');
-    const imageUrl = news.imageUrl?.startsWith('http') ? news.imageUrl : `https://iap-m.com${news.imageUrl}`;
+    // const imageUrl = news.imageUrl?.startsWith('http') ? news.imageUrl : `https://iap-m.com${news.imageUrl}`;
     const url = `https://iap-m.com/news/${newsId}`;
+    const socialImageUrl = `https://iap-m.com/social-image/${newsId}`;
     let customHtml = htmlData
       .replace(/<title>.*<\/title>/, `<title>${title}</title>`)
       .replace(/<meta property="og:title" content=".*?"/, `<meta property="og:title" content="${title}"`)
       .replace(/<meta property="og:description" content=".*?"/, `<meta property="og:description" content="${description}"`)
-      .replace(/<meta property="og:image" content=".*?"/, `<meta property="og:image" content="${imageUrl}"`)
+      .replace(/<meta property="og:image" content=".*?"/, `<meta property="og:image" content="${socialImageUrl}"`)
       .replace(/<meta property="og:url" content=".*?"/, `<meta property="og:url" content="${url}"`)
       .replace(/<meta name="twitter:title" content=".*?"/, `<meta name="twitter:title" content="${title}"`)
       .replace(/<meta name="twitter:description" content=".*?"/, `<meta name="twitter:description" content="${description}"`)
