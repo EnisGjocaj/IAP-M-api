@@ -45,13 +45,13 @@ newsRouter.get('/:id', async (req: Request, res: Response) => {
 });
 
 // Create news with image
-newsRouter.post('/', upload.single('image'), async (req, res) => {
+newsRouter.post('/', upload.array('images', 10), async (req, res) => {
   try {
     const { title, content } = req.body;
     const newsItem = await newsService.createNews({
       title,
       content,
-      image: req.file
+      images: req.files as Express.Multer.File[]
     });
     return res.status(201).json(newsItem);
   } catch (error: any) {

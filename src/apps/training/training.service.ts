@@ -99,7 +99,6 @@ export class TrainingService {
   // Enroll student in training
   async enrollStudent(trainingId: string, profileId: string) {
     try {
-      // First verify the profile exists
       const profile = await prisma.studentProfile.findUnique({
         where: { id: Number(profileId) },
         include: { user: true }
@@ -112,7 +111,6 @@ export class TrainingService {
         };
       }
 
-      // Check if enrollment already exists
       const existingEnrollment = await prisma.studentTrainingEnrollment.findUnique({
         where: {
           trainingId_profileId: {

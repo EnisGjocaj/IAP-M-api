@@ -17,7 +17,17 @@ export class NewsService {
 
   async getNewsById(newsId: string) {
     try {
-      const newsItem = await prisma.news.findUnique({ where: { id: Number(newsId) } });
+      const newsItem = await prisma.news.findUnique({ 
+        where: { id: Number(newsId) },
+        include: {
+          images: {
+            orderBy: {
+              order: 'asc'
+            }
+          }
+        }
+      });
+      
       if (!newsItem) {
         return { statusCode: 404, message: 'News not found' };
       }
@@ -51,18 +61,69 @@ export class NewsService {
     }
   }
 
-  async createNews(data: { title: string; content: string; image?: Express.Multer.File }) {
+  async uploadMultipleImages(files: Express.Multer.File[]) {
+    const uploadedUrls = [];
+    
+    for (const file of files) {
+      try {
+        const fileExt = file.originalname.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { data, error } = await supabase.storage
+          .from(this.BUCKET_NAME)
+          .upload(fileName, file.buffer, {
+            contentType: file.mimetype,
+            cacheControl: '3600'
+          });
+
+        if (error) throw error;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from(this.BUCKET_NAME)
+          .getPublicUrl(fileName);
+
+        uploadedUrls.push(publicUrl);
+      } catch (error: any) {
+        console.error(`Error uploading image: ${error.message}`);
+      }
+    }
+    
+    return uploadedUrls;
+  }
+
+  async createNews(data: { title: string; content: string; images?: Express.Multer.File[] }) {
     try {
-      let imageUrl = '';
-      if (data.image) {
-        imageUrl = await this.uploadImage(data.image);
+      let mainImageUrl = '';
+      let additionalImages: string[] = [];
+      
+      if (data.images && data.images.length > 0) {
+        // Upload all images
+        const uploadedUrls = await this.uploadMultipleImages(data.images);
+        
+        // Set first image as main image for backward compatibility
+        mainImageUrl = uploadedUrls[0];
+        additionalImages = uploadedUrls.slice(1);
       }
 
+      // Create news with main image (backward compatible) when we had one image only
       const newNewsItem = await prisma.news.create({
         data: {
           title: data.title,
           content: data.content,
-          imageUrl
+          imageUrl: mainImageUrl,
+          images: {
+            create: [
+              { url: mainImageUrl, isMain: true, order: 0 },
+              ...additionalImages.map((url, index) => ({
+                url,
+                isMain: false,
+                order: index + 1
+              }))
+            ].filter(img => img.url) 
+          }
+        },
+        include: {
+          images: true
         }
       });
       

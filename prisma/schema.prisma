@@ -31,13 +31,25 @@ model User {
 }
 
 
+model NewsImage {
+  id        Int      @id @default(autoincrement())
+  newsId    Int
+  url       String
+  isMain    Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  news      News     @relation(fields: [newsId], references: [id])
+}
+
 model News {
   id          Int      @id @default(autoincrement())
   title       String
   content     String
-  createdAt   DateTime @default(now())
-  imageUrl    String?  
+  createdAt   DateTime    @default(now())
+  imageUrl    String?     // We keep this to not cause breaking changes with the new image implementation
+  images      NewsImage[] // New relation
 }
+
 
 // model Application {
 //   id            Int      @id @default(autoincrement())
