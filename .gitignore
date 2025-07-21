@@ -1,56 +1,93 @@
-# Keep environment variables out of version control
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+*.pyo
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+target/
+bin/
+
+# Visual Studio Code
+.vscode/
+.history/
+
+# IDEs
+.idea/
+*.iml
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+logs/
+*.log
+
+# Environment files
 .env
+.env.local
+.env.*.local
 
+# macOS
+.AppleDouble
+.LSOverride
+Icon?
 
-# "start": "npx nodemon --exec ts-node ./src/index.ts",
+# Linux
+*~
 
-# {
-#     "version": 2,
-#     "builds": [
-#       {
-#         "src": "dist/index.js",
-#         "use": "@vercel/node",
-#         "config": { "includeFiles": ["dist/**"] }
-#       }
-#     ],
-#     "routes": [
-#       {
-#         "src": "/(.*)",
-#         "dest": "dist/index.js",
-#         "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-#         "headers": {
-#           "Access-Control-Allow-Credentials": "true",
-#           "Access-Control-Allow-Origin": "*",
-#           "Access-Control-Allow-Methods": "GET,OPTIONS,PATCH,DELETE,POST,PUT",
-#           "Access-Control-Allow-Headers": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
-#         }
-#       }
-#     ]
-#   }
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
+# Dependency directories
+bower_components/
+jspm_packages/
 
+# Testing
+coverage/
+.nyc_output/
+test-output/
 
+# Compiled source #
+###################
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.out
 
+# Backup files
+*.bak
+*.tmp
+*.orig
+*.old
 
-# {
-#   "name": "backend",
-#   "version": "1.0.0",
-#   "description": "",
-#   "main": "index.js",
-#   "scripts": {
-#     "test": "echo \"Error: no test specified\" && exit 1",
-#     "start": "nodemon src/index.ts",
-#     "seed": "ts-node prisma/seed.ts",
-#     "build": "rimraf dist && tsc",
-#     "ts.check": "tsc --project tsconfig.json",
-#     "add-build": "git add dist"
-#   },
-#   "pre-commit": [
-#     "ts.check",
-#     "build",
-#     "add-build"
-#   ],
-#   "prisma": {
-#     "seed": "ts-node prisma/seed.ts"
-#   },
-.vercel
+# Optional: ignore production output
+/dist/
+/build/
+/out/

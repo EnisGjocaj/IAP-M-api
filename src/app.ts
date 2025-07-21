@@ -61,8 +61,13 @@ app.get('/news/:id', async (req, res) => {
   const news = result.message;
   const mainImage = news.images.find((img: any) => img.isMain);
   
-  // Use the social URL for meta tags if available
-  const imageUrl = mainImage?.socialUrl || mainImage?.url || news.imageUrl;
+  // Check if request is from mobile
+  const isMobile = /mobile|iphone|ipod|android|blackberry|opera mini|iemobile|wpdesktop/i.test(req.headers['user-agent'] || '');
+  
+  // Choose appropriate URL
+  const imageUrl = isMobile 
+    ? (mainImage?.mobileSocialUrl || mainImage?.socialUrl || mainImage?.url)
+    : (mainImage?.desktopSocialUrl || mainImage?.socialUrl || mainImage?.url);
   
   const indexFile = '/home/ahodifer/www/iap-m.com/index.html';
   

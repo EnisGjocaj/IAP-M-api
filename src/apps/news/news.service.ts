@@ -20,22 +20,66 @@ export class NewsService {
         {
           folder: 'news-social',
           public_id: fileName,
-          transformation: [
-            { 
-              width: 1400, 
-              height: 788,  // Perfect 16:9 aspect ratio
-              crop: 'fill', 
-              gravity: 'auto',  
-              aspect_ratio: "16:9" 
+        
+          transformation: {
+            quality: 'auto:good',
+            fetch_format: 'auto'
+          },
+          eager: [
+            {
+              width: 1400,
+              height: 788,
+              crop: 'fill',
+              gravity: 'auto',
+              quality: 'auto:good',
+              fetch_format: 'auto',
+              format: 'jpg'
             },
-            { quality: 'auto:good' },
-            { fetch_format: 'auto' }
-          ],
-          tags: ['social_media']
+            {
+              width: 1200,
+              height: 900,
+              crop: 'fill',
+              gravity: 'auto',
+              quality: 'auto:good',
+              fetch_format: 'auto',
+              format: 'jpg'
+            }
+          ]
         },
         (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
+          if (error) {
+            console.error('Cloudinary upload error:', error);
+            reject(error);
+            return;
+          }
+
+          try {
+            console.log('Cloudinary upload result:', {
+              originalUrl: result?.secure_url,
+              eagerTransformations: result?.eager
+            });
+
+            if (!result?.eager || result?.eager?.length < 2) {
+              throw new Error('Missing eager transformations');
+            }
+
+            const [desktopVersion, mobileVersion] = result.eager;
+
+            console.log('Using versions:', {
+              desktop: desktopVersion.secure_url,
+              mobile: mobileVersion.secure_url
+            });
+
+            resolve({
+              secure_url: result.secure_url,
+              desktop_url: desktopVersion.secure_url,
+              mobile_url: mobileVersion.secure_url,
+              original: result
+            });
+          } catch (err) {
+            console.error('Error processing Cloudinary result:', err);
+            reject(err);
+          }
         }
       );
 
@@ -107,6 +151,7 @@ export class NewsService {
         const fileExt = file.originalname.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
         
+        // Upload to Supabase for regular display
         const { data, error } = await supabase.storage
           .from(this.BUCKET_NAME)
           .upload(`${fileName}.${fileExt}`, file.buffer, {
@@ -120,12 +165,14 @@ export class NewsService {
           .from(this.BUCKET_NAME)
           .getPublicUrl(`${fileName}.${fileExt}`);
 
-        // Upload to Cloudinary for social media
+        // Upload to Cloudinary with responsive versions
         const cloudinaryResult: any = await this.uploadToCloudinary(file.buffer, fileName);
 
         uploadedUrls.push({
           url: publicUrl,
-          socialUrl: cloudinaryResult.secure_url
+          socialUrl: cloudinaryResult.secure_url,
+          mobile_url: cloudinaryResult.mobile_url,
+          desktop_url: cloudinaryResult.desktop_url
         });
       } catch (error: any) {
         console.error(`Error uploading image: ${error.message}`);
@@ -139,13 +186,18 @@ export class NewsService {
     try {
       let mainImageUrl = '';
       let mainSocialUrl = '';
+      let mainMobileSocialUrl = '';
+      let mainDesktopSocialUrl = '';
       let additionalImages: any[] = [];
       
       if (data.images && data.images.length > 0) {
         const uploadedUrls = await this.uploadMultipleImages(data.images);
         
+        // Get all URLs for the main image (first image)
         mainImageUrl = uploadedUrls[0].url;
         mainSocialUrl = uploadedUrls[0].socialUrl;
+        mainMobileSocialUrl = uploadedUrls[0].mobile_url;      // Changed from mobileSocialUrl
+        mainDesktopSocialUrl = uploadedUrls[0].desktop_url;    // Changed from desktopSocialUrl
         additionalImages = uploadedUrls.slice(1);
       }
 
@@ -159,12 +211,16 @@ export class NewsService {
               { 
                 url: mainImageUrl, 
                 socialUrl: mainSocialUrl,
+                mobileSocialUrl: mainMobileSocialUrl,     // Add this
+                desktopSocialUrl: mainDesktopSocialUrl,   // Add this
                 isMain: true, 
                 order: 0 
               },
               ...additionalImages.map((img, index) => ({
                 url: img.url,
-                socialUrl: img.socialUrl, 
+                socialUrl: img.socialUrl,
+                mobileSocialUrl: img.mobile_url,          // Changed from mobileSocialUrl
+                desktopSocialUrl: img.desktop_url,        // Changed from desktopSocialUrl
                 isMain: false,
                 order: index + 1
               }))
@@ -221,7 +277,6 @@ export class NewsService {
         throw new Error('News not found');
       }
 
-      // Start a transaction to delete everything
       await prisma.$transaction(async (tx) => {
         // 1. Delete all associated images from Supabase
         for (const image of news.images) {
@@ -240,7 +295,7 @@ export class NewsService {
           }
         });
 
-        // 3. Finally delete the news article
+        // 3. delete the news article
         await tx.news.delete({
           where: {
             id: Number(newsId)

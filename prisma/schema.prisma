@@ -32,14 +32,16 @@ model User {
 
 
 model NewsImage {
-  id        Int      @id @default(autoincrement())
-  newsId    Int
-  url       String
-  socialUrl String?  
-  isMain    Boolean  @default(false)
-  order     Int      @default(0)
+  id              Int      @id @default(autoincrement())
+  url             String
+  socialUrl       String?  
+  mobileSocialUrl String?  
+  desktopSocialUrl String? 
+  isMain          Boolean  @default(false)
+  order           Int      @default(0)
+  newsId          Int
+  news            News     @relation(fields: [newsId], references: [id])
   createdAt DateTime @default(now())
-  news      News     @relation(fields: [newsId], references: [id])
 }
 
 model News {
@@ -48,7 +50,7 @@ model News {
   content     String
   createdAt   DateTime    @default(now())
   imageUrl    String?     // We keep this to not cause breaking changes with the new image implementation
-  images      NewsImage[] // New relation
+  images      NewsImage[]
 }
 
 
