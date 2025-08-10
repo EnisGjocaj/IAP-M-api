@@ -33,13 +33,35 @@ newsRouter.get('/', async (req: Request, res: Response) => {
 // Get news by ID
 newsRouter.get('/:id', async (req: Request, res: Response) => {
   try {
+    console.log('API News Route Hit:', {
+      endpoint: `/api/news/${req.params.id}`,
+      query: req.query,
+      userAgent: req.headers['user-agent']?.substring(0, 100)
+    });
+
     const newsItem = await newsService.getNewsById(req.params.id);
+
+    if (newsItem.statusCode === 200) {
+      const mainImage = newsItem.message.images?.find((img: any) => img.isMain);
+      
+      console.log('API News Image Data:', {
+        newsId: req.params.id,
+        hasImages: newsItem.message.images?.length > 0,
+        mainImage: {
+          exists: !!mainImage,
+          hasMobileUrl: !!mainImage?.mobileSocialUrl,
+          hasDesktopUrl: !!mainImage?.desktopSocialUrl,
+          hasSocialUrl: !!mainImage?.socialUrl
+        }
+      });
+    }
+
     if (!newsItem) {
       return res.status(404).json({ message: 'News not found' });
     }
     return res.status(200).json(newsItem);
   } catch (error) {
-    console.error('Error fetching news:', error);
+    console.error('Error in API news route:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });

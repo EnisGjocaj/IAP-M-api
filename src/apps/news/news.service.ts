@@ -26,6 +26,7 @@ export class NewsService {
             fetch_format: 'auto'
           },
           eager: [
+            // Desktop version stays the same (16:9)
             {
               width: 1400,
               height: 788,
@@ -35,11 +36,13 @@ export class NewsService {
               fetch_format: 'auto',
               format: 'jpg'
             },
+            // Mobile version - smaller and more zoomed out (new dimensions)
             {
-              width: 1200,
-              height: 900,
+              width: 800,    // Reduced from 1200
+              height: 600,   // Reduced from 900
               crop: 'fill',
               gravity: 'auto',
+              zoom: '0.8',   // Zoom out slightly
               quality: 'auto:good',
               fetch_format: 'auto',
               format: 'jpg'
