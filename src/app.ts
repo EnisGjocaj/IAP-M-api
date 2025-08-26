@@ -112,7 +112,7 @@ app.get('/news/:id', async (req, res) => {
     usingDesktopVersion: imageUrl === mainImage?.desktopSocialUrl
   });
   
-  const indexFile = '/home/ahodifer/www/iap-m.com/index.html';
+  const indexFile = '/var/www/iap-m/index.html';
   
   fs.readFile(indexFile, 'utf8', (err, htmlData) => {
     if (err) {
@@ -173,7 +173,7 @@ app.get('/bord/team/:id', async (req, res) => {
   }
   
   const member = result.message;
-  const indexFile = '/home/ahodifer/www/iap-m.com/index.html';
+  const indexFile = '/var/www/iap-m/index.html';
   
   fs.readFile(indexFile, 'utf8', (err, htmlData) => {
     if (err) {
@@ -312,7 +312,7 @@ const isStaticFile = (req: express.Request, res: express.Response, next: express
   const ext = path.extname(req.path);
   if (ext) {
     // If path has extension, treat as static file
-    express.static('/home/ahodifer/www/iap-m.com')(req, res, next);
+    express.static('/var/www/iap-m')(req, res, next);
   } else {
     next();
   }
@@ -339,7 +339,7 @@ app.get('/bord/team/:id', async (req, res) => {
   }
   
   const member = result.message;
-  const indexFile = '/home/ahodifer/www/iap-m.com/index.html';
+  const indexFile = '/var/www/iap-m/index.html';
   
   fs.readFile(indexFile, 'utf8', (err, htmlData) => {
     if (err) {
@@ -435,7 +435,7 @@ app.get('/news/:id', async (req, res) => {
     usingDesktopVersion: imageUrl === mainImage?.desktopSocialUrl
   });
 
-  const indexFile = '/home/ahodifer/www/iap-m.com/index.html';
+  const indexFile = '/var/www/iap-m/index.html';
   console.log('Trying to read index.html from:', indexFile);
   fs.readFile(indexFile, 'utf8', (err, htmlData) => {
     if (err) {
@@ -476,7 +476,7 @@ app.get('/news/:id', async (req, res) => {
 // Catch-all route for SPA should be last
 app.get('*', (req, res) => {
   console.log('⚠️ CATCH-ALL ROUTE HIT:', req.url);
-  res.sendFile(path.join('/home/ahodifer/www/iap-m.com', 'index.html'));
+  res.sendFile(path.join('/var/www/iap-m', 'index.html'));
 });
 
 export default app;
