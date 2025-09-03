@@ -473,7 +473,7 @@ app.get('/news/:id', async (req, res) => {
   });
 });
 
-// Catch-all route for SPA should be last
+// Catch-all route for SPA should be last 
 app.get('*', (req, res) => {
   console.log('⚠️ CATCH-ALL ROUTE HIT:', req.url);
   res.sendFile(path.join('/var/www/iap-m', 'index.html'));

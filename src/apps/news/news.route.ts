@@ -5,16 +5,40 @@ import multer from 'multer';
 const newsService = new NewsService();
 const newsRouter = express.Router();
 
+// const upload = multer({
+//   storage: multer.memoryStorage(),
+//   limits: {
+//     fileSize: 5 * 1024 * 1024 
+//   },
+//   fileFilter: (req, file, cb) => {
+//     if (file.mimetype.startsWith('image/')) {
+//       cb(null, true);
+//     } else {
+//       cb(new Error('Only images are allowed'));
+//     }
+//   }
+// });
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 10 * 1024 * 1024 
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
+    if (file.fieldname === 'pdfFile') {
+      if (file.mimetype === 'application/pdf') {
+        cb(null, true);
+      } else {
+        cb(new Error('Only PDF files are allowed for reports'));
+      }
+    } else if (file.fieldname === 'images') {
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only images are allowed'));
+      }
     } else {
-      cb(new Error('Only images are allowed'));
+      cb(null, true);
     }
   }
 });
@@ -67,13 +91,39 @@ newsRouter.get('/:id', async (req: Request, res: Response) => {
 });
 
 // Create news with image
-newsRouter.post('/', upload.array('images', 10), async (req, res) => {
+
+// newsRouter.post('/', upload.array('images', 10), async (req, res) => {
+//   try {
+//     const { title, content } = req.body;
+//     const newsItem = await newsService.createNews({
+//       title,
+//       content,
+//       images: req.files as Express.Multer.File[]
+//     });
+//     return res.status(201).json(newsItem);
+//   } catch (error: any) {
+//     console.error('Error creating news:', error);
+//     return res.status(500).json({ message: error.message });
+//   }
+// });
+
+
+newsRouter.post('/', upload.fields([
+  { name: 'images', maxCount: 10 },
+  { name: 'pdfFile', maxCount: 1 }
+]), async (req, res) => {
   try {
-    const { title, content } = req.body;
+    const { title, content, type, reportDate, reportCategory } = req.body;
+    const files = req.files as { images?: Express.Multer.File[], pdfFile?: Express.Multer.File[] };
+    
     const newsItem = await newsService.createNews({
       title,
       content,
-      images: req.files as Express.Multer.File[]
+      type,
+      reportDate,
+      reportCategory,
+      images: files.images,
+      pdfFile: files.pdfFile?.[0]
     });
     return res.status(201).json(newsItem);
   } catch (error: any) {
@@ -81,15 +131,30 @@ newsRouter.post('/', upload.array('images', 10), async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 });
-
 // Update news
-newsRouter.put('/:id', upload.single('image'), async (req, res) => {
+newsRouter.put('/:id', upload.fields([
+  { name: 'images', maxCount: 10 },
+  { name: 'pdfFile', maxCount: 1 }
+]), async (req, res) => {
   try {
-    const { title, content } = req.body;
+    const { title, content, type, reportDate, reportCategory, existingImages } = req.body;
+    const files = req.files as { images?: Express.Multer.File[], pdfFile?: Express.Multer.File[] };
+    
+    console.log('Update news request:', {
+      id: req.params.id,
+      body: { title, content, type, reportDate, reportCategory },
+      files: files ? Object.keys(files) : 'no files'
+    });
+    
     const updatedNews = await newsService.updateNews(req.params.id, {
       title,
       content,
-      image: req.file
+      type,
+      reportDate,
+      reportCategory,
+      images: files.images,
+      pdfFile: files.pdfFile?.[0],
+      existingImages: existingImages ? JSON.parse(existingImages) : []
     });
     return res.status(200).json(updatedNews);
   } catch (error: any) {
