@@ -56,21 +56,22 @@ export class ApplicationService {
   async createApplication(data: ApplicationData) {
     try {
       const result = await prisma.$transaction(async (tx) => {
-        let user = await tx.user.findUnique({
+        // Use upsert to atomically get or create user, avoiding race conditions
+        const randomPassword = Math.random().toString(36).slice(-8);
+        const user = await tx.user.upsert({
           where: { email: data.email },
+          update: {
+            // Update name and surname if user exists but info might be outdated
+            name: data.name,
+            surname: data.surname,
+          },
+          create: {
+            email: data.email,
+            name: data.name,
+            surname: data.surname,
+            password: randomPassword,
+          },
         });
-
-        if (!user) {
-          const randomPassword = Math.random().toString(36).slice(-8);
-          user = await tx.user.create({
-            data: {
-              email: data.email,
-              name: data.name,
-              surname: data.surname,
-              password: randomPassword,
-            },
-          });
-        }
 
         const newApplication = await tx.application.create({
           data: {
@@ -86,7 +87,10 @@ export class ApplicationService {
         return { user, application: newApplication };
       });
 
-      await sendApplicationEmail(data.email, data.name, data.type);
+      // Send email outside transaction to avoid blocking on email failures
+      sendApplicationEmail(data.email, data.name, data.type).catch((error) => {
+        console.error('Error sending email (non-blocking):', error);
+      });
 
       return { 
         statusCode: 201, 
@@ -96,11 +100,19 @@ export class ApplicationService {
     } catch (error: any) {
       console.error('Error creating application:', error);
       
-      if (error.code === 'P2002' && error.meta?.target?.includes('email_type')) {
-        return { 
-          statusCode: 400, 
-          message: 'You have already applied for this training type' 
-        };
+      if (error.code === 'P2002') {
+        if (error.meta?.target?.includes('email_type')) {
+          return { 
+            statusCode: 400, 
+            message: 'You have already applied for this training type' 
+          };
+        }
+        if (error.meta?.target?.includes('email')) {
+          return { 
+            statusCode: 400, 
+            message: 'A user with this email already exists' 
+          };
+        }
       }
 
       return { 

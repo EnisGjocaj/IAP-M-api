@@ -43,34 +43,34 @@ interface MailOptions {
 }
 
 // Create a transporter for sending emails using Hostpoint's SMTP settings
+// For Hostinger Email or Titan Email via Nodemailer:
 const transporter = nodemailer.createTransport({
-  host: 'smtp.hostpoint.ch',  // Hostpoint's SMTP server (you might need to confirm this)
-  port: 465,  // 587 is typically used for TLS
-  secure: true,  // Use TLS but not SSL, false means STARTTLS
+  host: 'smtp.hostinger.com',   // Hostinger SMTP
+  port: 587,                    // TLS (recommended)
+  secure: false,                // false for STARTTLS on 587
   auth: {
-    user: process.env.EMAIL_USER,  
-    pass: process.env.EMAIL_PASS,  
+    user: process.env.EMAIL_USER, // full email, e.g. name@yourdomain.com
+    pass: process.env.EMAIL_PASS, // email password
   },
   tls: {
-    rejectUnauthorized: false,  
+    ciphers: 'SSLv3',           // optional; usually not needed
+    rejectUnauthorized: false,  // avoid in production if possible
   },
-  
-  logger: true,  
+  logger: true,
   debug: true,
 });
 
-export const sendApplicationEmail = async (toEmail: string, name: string, type: string): Promise<void> => {
+export const sendApplicationEmail = async (
+  toEmail: string,
+  name: string,
+  type: string
+): Promise<void> => {
   const mailOptions: MailOptions = {
-    from: process.env.EMAIL_USER!, 
+    from: process.env.EMAIL_USER!,          // must match the mailbox at Hostinger
     to: toEmail,
     subject: 'Application Received',
     text: `Dear ${name},\n\nThank you for applying to our ${type} program. We have received your application and will get back to you shortly.\n\nBest regards,\nThe Team`,
   };
 
-  try {
-    await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully');
-  } catch (error) {
-    console.error('Error sending email:', error);
-  }
+  await transporter.sendMail(mailOptions);
 };
