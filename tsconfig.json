@@ -25,5 +25,10 @@
       "./node_modules/@types"
     ]
   },
-  "include": ["./src/**/*", "./prisma/**/*"]
+  "include": [
+  "./src/**/*",
+  "./prisma/**/*",
+  "./scripts/**/*"
+]
+
 }

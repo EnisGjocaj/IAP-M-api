@@ -3,7 +3,6 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  // Create the Accounting Training
   const accountingTraining = await prisma.training.create({
     data: {
       title: "Trajnim në Kontabilitetin Praktik",
