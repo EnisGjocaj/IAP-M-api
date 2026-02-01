@@ -22,7 +22,7 @@ import { NewsService } from './apps/news/news.service';
 import featuredStudentRouter from './apps/featuredStudent/featuredStudent.route';
 import studentProfileRouter from './apps/studentProfile/studentProfile.route';
 import trainingRouter from './apps/training/training.route';
-
+import aiRouter from './ai/ai.route';
 
 const cache = new NodeCache({ stdTTL: 60 * 5 });
 
@@ -304,8 +304,7 @@ app.use("/dashboard", cacheMiddleware, dashboardRouter);
 app.use('/training-programs-iap', trainingRouter);
 app.use("/featured-students", cacheMiddleware, featuredStudentRouter);
 app.use('/student-profile', studentProfileRouter);
-
-
+app.use('/api/ai', aiRouter);
 
 // Create a middleware to check if request is for static file
 const isStaticFile = (req: express.Request, res: express.Response, next: express.NextFunction) => {

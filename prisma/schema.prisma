@@ -28,6 +28,11 @@ model User {
 
   applications Application[]
   studentProfile StudentProfile?
+
+  aiMaterialsOwned     AiMaterial[] @relation("AiMaterialOwner")
+  aiMaterialsApproved  AiMaterial[] @relation("AiMaterialApprover")
+  aiMaterialsRejected  AiMaterial[] @relation("AiMaterialRejector")
+  aiQueryLogs          AiQueryLog[]
 }
 
 
@@ -328,5 +333,148 @@ model TrainingReview {
   featuredStudent   FeaturedStudent? @relation(fields: [featuredStudentId], references: [id])
 
   @@unique([trainingId, studentProfileId]) 
+}
+
+enum AiMaterialStatus {
+  UPLOADED
+  SUBMITTED
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum AiMaterialType {
+  PDF
+  SLIDES
+  NOTES
+  BOOK
+  OTHER
+}
+
+enum AiStorageProvider {
+  LOCAL
+  SUPABASE
+  CLOUDINARY
+}
+
+enum AiMaterialVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum AiMaterialIndexStatus {
+  PENDING
+  INDEXING
+  INDEXED
+  FAILED
+}
+
+model AiMaterial {
+  id             Int      @id @default(autoincrement())
+  ownerUserId    Int
+  title          String
+  courseType     String?
+  courseName     String?
+  materialType   AiMaterialType @default(OTHER)
+  status         AiMaterialStatus @default(UPLOADED)
+
+  visibility     AiMaterialVisibility @default(PRIVATE)
+
+  mimeType       String
+  sizeBytes      Int
+  checksumSha256 String
+
+  storageProvider AiStorageProvider
+  storagePath     String
+
+  cloudinaryPublicId String?
+  cloudinaryUrl      String?
+
+  isApproved       Boolean  @default(false)
+  approvedAt       DateTime?
+  approvedByUserId Int?
+
+  rejectedAt       DateTime?
+  rejectedByUserId Int?
+  rejectedReason   String?
+
+  indexStatus AiMaterialIndexStatus @default(PENDING)
+  indexedAt   DateTime?
+  indexError  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownerUser      User  @relation("AiMaterialOwner", fields: [ownerUserId], references: [id])
+  approvedByUser User? @relation("AiMaterialApprover", fields: [approvedByUserId], references: [id])
+  rejectedByUser User? @relation("AiMaterialRejector", fields: [rejectedByUserId], references: [id])
+
+  chunks   AiMaterialChunk[]
+  queryLogs AiQueryLog[]
+}
+
+model AiMaterialChunk {
+  id         Int      @id @default(autoincrement())
+  materialId Int
+  chunkIndex Int
+  text       String   @db.Text
+
+  pageStart  Int?
+  pageEnd    Int?
+  tokenCount Int?
+
+  createdAt DateTime @default(now())
+
+  material   AiMaterial @relation(fields: [materialId], references: [id])
+  embedding  AiChunkEmbedding?
+  retrievals AiQueryRetrieval[]
+
+  @@unique([materialId, chunkIndex])
+  @@index([materialId])
+}
+
+model AiChunkEmbedding {
+  id             Int      @id @default(autoincrement())
+  chunkId        Int      @unique
+  embeddingModel String
+  dims           Int
+  vector         Float[]
+  createdAt      DateTime @default(now())
+
+  chunk AiMaterialChunk @relation(fields: [chunkId], references: [id])
+
+  @@index([embeddingModel])
+}
+
+model AiQueryLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  materialId Int?
+
+  question   String   @db.Text
+  answer     String?  @db.Text
+
+  createdAt DateTime @default(now())
+
+  user     User       @relation(fields: [userId], references: [id])
+  material AiMaterial? @relation(fields: [materialId], references: [id])
+
+  retrievals AiQueryRetrieval[]
+}
+
+model AiQueryRetrieval {
+  id         Int      @id @default(autoincrement())
+  queryLogId Int
+  chunkId    Int
+  score      Float
+  rank       Int
+  createdAt  DateTime @default(now())
+
+  queryLog AiQueryLog      @relation(fields: [queryLogId], references: [id])
+  chunk    AiMaterialChunk @relation(fields: [chunkId], references: [id])
+
+  @@index([queryLogId])
+  @@index([chunkId])
+  @@unique([queryLogId, rank])
 }
 
