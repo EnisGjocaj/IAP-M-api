@@ -33,6 +33,10 @@ export class AIService {
     private readonly vectorStore: VectorStore
   ) {}
 
+  private noRetrievalMessage() {
+    return 'Not enough approved material to answer this question.';
+  }
+
   private systemPrompt() {
     return [
       'You are the IAP-M Faculty of Business AI academic assistant.',
@@ -103,6 +107,25 @@ export class AIService {
       topK: input.topK ?? 6,
     });
 
+    if (orderedChunks.length === 0) {
+      const answer = this.noRetrievalMessage();
+
+      await this.prisma.aiQueryLog.update({
+        where: { id: queryLog.id },
+        data: { answer },
+      });
+
+      return {
+        statusCode: 200,
+        message: {
+          answer,
+          logId: queryLog.id,
+          usedMaterialIds: input.materialIds,
+          retrievedChunkIds: [],
+        },
+      };
+    }
+
     const retrievalRows = top.map((t, rank) => ({
       queryLogId: queryLog.id,
       chunkId: t.chunkId,
@@ -165,6 +188,17 @@ export class AIService {
       topK: input.topK ?? 6,
     });
 
+    if (orderedChunks.length === 0) {
+      const answer = this.noRetrievalMessage();
+      await this.prisma.aiQueryLog.update({
+        where: { id: queryLog.id },
+        data: { answer },
+      });
+
+      yield answer;
+      return;
+    }
+
     const retrievalRows = top.map((t, rank) => ({
       queryLogId: queryLog.id,
       chunkId: t.chunkId,
@@ -210,6 +244,16 @@ export class AIService {
       topK: 10,
     });
 
+    if (orderedChunks.length === 0) {
+      return {
+        statusCode: 200,
+        message: {
+          summary: 'Not enough approved material to summarize.',
+          usedMaterialIds: input.materialIds,
+        },
+      };
+    }
+
     const sourcesBlock = this.buildSourcesBlock(orderedChunks);
 
     const summary = await this.groq.chat([
@@ -237,6 +281,16 @@ export class AIService {
       queryText,
       topK: 12,
     });
+
+    if (orderedChunks.length === 0) {
+      return {
+        statusCode: 200,
+        message: {
+          exam: 'Not enough approved material to generate an exam.',
+          usedMaterialIds: input.materialIds,
+        },
+      };
+    }
 
     const sourcesBlock = this.buildSourcesBlock(orderedChunks);
 

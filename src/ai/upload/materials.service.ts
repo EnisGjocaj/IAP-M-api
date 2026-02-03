@@ -53,6 +53,13 @@ export class MaterialsService {
 
   async uploadMaterial(userId: number, input: UploadMaterialInput) {
     try {
+      if (input.file.mimetype !== 'application/pdf') {
+        return {
+          statusCode: 400,
+          message: { message: 'Only PDF materials are supported for MVP ingestion.' },
+        };
+      }
+
       const checksum = crypto.createHash('sha256').update(input.file.buffer).digest('hex');
 
       const uploadResult = await new Promise<{
