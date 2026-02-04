@@ -9,16 +9,21 @@ export type AnswerQuestionInput = {
   question: string;
   materialIds: number[];
   topK?: number;
+  conversationId?: number;
 };
 
 export type SummarizeInput = {
   materialIds: number[];
   style?: 'bullet' | 'short' | 'detailed';
+  conversationId?: number;
+  saveConversation?: boolean;
 };
 
 export type ExamGenerateInput = {
   materialIds: number[];
   count?: number;
+  conversationId?: number;
+  saveConversation?: boolean;
 };
 
 export type AdvisorInput = {
@@ -44,13 +49,30 @@ export class AIService {
       '1) Answer ONLY using the provided approved material excerpts (sources).',
       '2) If the answer is not contained in the sources, say you do not have enough approved material to answer.',
       '3) Be accurate, clear, and student-friendly.',
-      '4) When you use a source, cite it like [chunk:<id>].',
+      '4) When you use a source, cite it like [1], [2], etc, matching the source numbers provided.',
     ].join('\n');
   }
 
-  private buildSourcesBlock(chunks: Array<{ id: number; text: string }>) {
+  private buildSourcesBlock(
+    chunks: Array<{
+      sourceNo: number;
+      chunkId: number;
+      text: string;
+      materialTitle: string;
+      pageStart: number | null;
+      pageEnd: number | null;
+    }>
+  ) {
     return chunks
-      .map((c) => `Source [chunk:${c.id}]\n${c.text}`)
+      .map((c) => {
+        const pages =
+          c.pageStart && c.pageEnd
+            ? c.pageStart === c.pageEnd
+              ? `page ${c.pageStart}`
+              : `pages ${c.pageStart}–${c.pageEnd}`
+            : 'pages ?';
+        return `Source [${c.sourceNo}] ${c.materialTitle} (${pages})\n${c.text}`;
+      })
       .join('\n\n---\n\n');
   }
 
@@ -71,15 +93,60 @@ export class AIService {
     const chunkIds = top.map((t) => t.chunkId);
     const chunks = await this.prisma.aiMaterialChunk.findMany({
       where: { id: { in: chunkIds } },
-      select: { id: true, text: true },
+      select: {
+        id: true,
+        text: true,
+        pageStart: true,
+        pageEnd: true,
+        material: { select: { id: true, title: true, cloudinaryUrl: true } },
+      },
     });
 
     const byId = new Map(chunks.map((c) => [c.id, c] as const));
     const orderedChunks = top
       .map((t) => byId.get(t.chunkId))
-      .filter((c): c is { id: number; text: string } => !!c);
+      .filter(
+        (c): c is {
+          id: number;
+          text: string;
+          pageStart: number | null;
+          pageEnd: number | null;
+          material: { id: number; title: string; cloudinaryUrl: string | null };
+        } => !!c
+      );
 
     return { top, orderedChunks, chunkIds };
+  }
+
+  private async ensureConversation(params: {
+    userId: number;
+    conversationId?: number;
+    type: 'CHAT' | 'SUMMARY' | 'EXAM';
+    title: string;
+    materialIds: number[];
+    materialId?: number | null;
+  }) {
+    if (params.conversationId) {
+      const convo = await (this.prisma as any).aiConversation.findFirst({
+        where: { id: params.conversationId, userId: params.userId },
+        select: { id: true },
+      });
+      if (!convo) throw new Error('Conversation not found');
+      return params.conversationId;
+    }
+
+    const created = await (this.prisma as any).aiConversation.create({
+      data: {
+        userId: params.userId,
+        type: params.type,
+        title: params.title,
+        materialIds: params.materialIds,
+        materialId: params.materialId ?? null,
+      },
+      select: { id: true },
+    });
+
+    return created.id as number;
   }
 
   async answerQuestion(userId: number, input: AnswerQuestionInput) {
@@ -101,6 +168,22 @@ export class AIService {
       },
     });
 
+    const conversationId = await this.ensureConversation({
+      userId,
+      conversationId: input.conversationId,
+      type: 'CHAT',
+      title: (input.question || 'New chat').slice(0, 80),
+      materialIds: input.materialIds,
+    });
+
+    await (this.prisma as any).aiConversationMessage.create({
+      data: {
+        conversationId,
+        role: 'USER',
+        content: input.question,
+      },
+    });
+
     const { top, orderedChunks, chunkIds } = await this.retrieveTopChunks({
       materialIds: input.materialIds,
       queryText: input.question,
@@ -115,6 +198,19 @@ export class AIService {
         data: { answer },
       });
 
+      await (this.prisma as any).aiConversationMessage.create({
+        data: {
+          conversationId,
+          role: 'ASSISTANT',
+          content: answer,
+        },
+      });
+
+      await (this.prisma as any).aiConversation.update({
+        where: { id: conversationId },
+        data: { materialIds: input.materialIds },
+      });
+
       return {
         statusCode: 200,
         message: {
@@ -122,6 +218,8 @@ export class AIService {
           logId: queryLog.id,
           usedMaterialIds: input.materialIds,
           retrievedChunkIds: [],
+          conversationId,
+          references: [],
         },
       };
     }
@@ -137,7 +235,18 @@ export class AIService {
       await this.prisma.aiQueryRetrieval.createMany({ data: retrievalRows });
     }
 
-    const sourcesBlock = this.buildSourcesBlock(orderedChunks);
+    const numberedSources = orderedChunks.map((c, idx) => ({
+      sourceNo: idx + 1,
+      chunkId: c.id,
+      text: c.text,
+      materialTitle: c.material.title,
+      materialId: c.material.id,
+      cloudinaryUrl: c.material.cloudinaryUrl,
+      pageStart: c.pageStart,
+      pageEnd: c.pageEnd,
+    }));
+
+    const sourcesBlock = this.buildSourcesBlock(numberedSources);
 
     const answer = await this.groq.chat([
       { role: 'system', content: this.systemPrompt() },
@@ -152,6 +261,28 @@ export class AIService {
       data: { answer },
     });
 
+    const assistantMsg = await (this.prisma as any).aiConversationMessage.create({
+      data: {
+        conversationId,
+        role: 'ASSISTANT',
+        content: answer,
+      },
+      select: { id: true },
+    });
+
+    await (this.prisma as any).aiMessageReference.createMany({
+      data: numberedSources.map((s) => ({
+        messageId: assistantMsg.id,
+        chunkId: s.chunkId,
+        sourceNo: s.sourceNo,
+      })),
+    });
+
+    await (this.prisma as any).aiConversation.update({
+      where: { id: conversationId },
+      data: { materialIds: input.materialIds },
+    });
+
     return {
       statusCode: 200,
       message: {
@@ -159,6 +290,16 @@ export class AIService {
         logId: queryLog.id,
         usedMaterialIds: input.materialIds,
         retrievedChunkIds: chunkIds,
+        conversationId,
+        references: numberedSources.map((s) => ({
+          sourceNo: s.sourceNo,
+          chunkId: s.chunkId,
+          materialId: s.materialId,
+          materialTitle: s.materialTitle,
+          cloudinaryUrl: s.cloudinaryUrl,
+          pageStart: s.pageStart,
+          pageEnd: s.pageEnd,
+        })),
       },
     };
   }
@@ -210,7 +351,16 @@ export class AIService {
       await this.prisma.aiQueryRetrieval.createMany({ data: retrievalRows });
     }
 
-    const sourcesBlock = this.buildSourcesBlock(orderedChunks);
+    const numberedSources = orderedChunks.map((c, idx) => ({
+      sourceNo: idx + 1,
+      chunkId: c.id,
+      text: c.text,
+      materialTitle: c.material.title,
+      pageStart: c.pageStart,
+      pageEnd: c.pageEnd,
+    }));
+
+    const sourcesBlock = this.buildSourcesBlock(numberedSources);
 
     let accumulated = '';
     for await (const token of this.groq.chatStream([
@@ -254,7 +404,18 @@ export class AIService {
       };
     }
 
-    const sourcesBlock = this.buildSourcesBlock(orderedChunks);
+    const numberedSources = orderedChunks.map((c, idx) => ({
+      sourceNo: idx + 1,
+      chunkId: c.id,
+      text: c.text,
+      materialTitle: c.material.title,
+      materialId: c.material.id,
+      cloudinaryUrl: c.material.cloudinaryUrl,
+      pageStart: c.pageStart,
+      pageEnd: c.pageEnd,
+    }));
+
+    const sourcesBlock = this.buildSourcesBlock(numberedSources);
 
     const summary = await this.groq.chat([
       { role: 'system', content: this.systemPrompt() },
@@ -264,7 +425,58 @@ export class AIService {
       },
     ]);
 
-    return { statusCode: 200, message: { summary, usedMaterialIds: input.materialIds } };
+    let conversationId: number | undefined = undefined;
+    if (input.saveConversation) {
+      const materialId = input.materialIds[0] ?? null;
+      const materialTitle = materialId
+        ? (await this.prisma.aiMaterial.findUnique({ where: { id: materialId }, select: { title: true } }))?.title
+        : null;
+      const title = materialTitle ? `Summary: ${materialTitle}` : 'Summary';
+
+      conversationId = await this.ensureConversation({
+        userId,
+        conversationId: input.conversationId,
+        type: 'SUMMARY',
+        title,
+        materialIds: input.materialIds,
+        materialId,
+      });
+
+      const assistantMsg = await (this.prisma as any).aiConversationMessage.create({
+        data: {
+          conversationId,
+          role: 'ASSISTANT',
+          content: summary,
+        },
+        select: { id: true },
+      });
+
+      await (this.prisma as any).aiMessageReference.createMany({
+        data: numberedSources.map((s) => ({
+          messageId: assistantMsg.id,
+          chunkId: s.chunkId,
+          sourceNo: s.sourceNo,
+        })),
+      });
+    }
+
+    return {
+      statusCode: 200,
+      message: {
+        summary,
+        usedMaterialIds: input.materialIds,
+        conversationId,
+        references: numberedSources.map((s) => ({
+          sourceNo: s.sourceNo,
+          chunkId: s.chunkId,
+          materialId: s.materialId,
+          materialTitle: s.materialTitle,
+          cloudinaryUrl: s.cloudinaryUrl,
+          pageStart: s.pageStart,
+          pageEnd: s.pageEnd,
+        })),
+      },
+    };
   }
 
   async generateExam(userId: number, input: ExamGenerateInput) {
@@ -292,7 +504,16 @@ export class AIService {
       };
     }
 
-    const sourcesBlock = this.buildSourcesBlock(orderedChunks);
+    const numberedSources = orderedChunks.map((c, idx) => ({
+      sourceNo: idx + 1,
+      chunkId: c.id,
+      text: c.text,
+      materialTitle: c.material.title,
+      pageStart: c.pageStart,
+      pageEnd: c.pageEnd,
+    }));
+
+    const sourcesBlock = this.buildSourcesBlock(numberedSources);
 
     const exam = await this.groq.chat([
       { role: 'system', content: this.systemPrompt() },
@@ -302,7 +523,57 @@ export class AIService {
       },
     ]);
 
-    return { statusCode: 200, message: { exam, usedMaterialIds: input.materialIds } };
+    let conversationId: number | undefined = undefined;
+    if (input.saveConversation) {
+      const materialId = input.materialIds[0] ?? null;
+      const materialTitle = materialId
+        ? (await this.prisma.aiMaterial.findUnique({ where: { id: materialId }, select: { title: true } }))?.title
+        : null;
+
+      const title = materialTitle ? `Exam Prep: ${materialTitle}` : 'Exam Prep';
+
+      conversationId = await this.ensureConversation({
+        userId,
+        conversationId: input.conversationId,
+        type: 'EXAM',
+        title,
+        materialIds: input.materialIds,
+        materialId,
+      });
+
+      const assistantMsg = await (this.prisma as any).aiConversationMessage.create({
+        data: {
+          conversationId,
+          role: 'ASSISTANT',
+          content: exam,
+        },
+        select: { id: true },
+      });
+
+      await (this.prisma as any).aiMessageReference.createMany({
+        data: numberedSources.map((s) => ({
+          messageId: assistantMsg.id,
+          chunkId: s.chunkId,
+          sourceNo: s.sourceNo,
+        })),
+      });
+    }
+
+    return {
+      statusCode: 200,
+      message: {
+        exam,
+        usedMaterialIds: input.materialIds,
+        conversationId,
+        references: numberedSources.map((s) => ({
+          sourceNo: s.sourceNo,
+          chunkId: s.chunkId,
+          materialTitle: s.materialTitle,
+          pageStart: s.pageStart,
+          pageEnd: s.pageEnd,
+        })),
+      },
+    };
   }
 
   async advise(userId: number, input: AdvisorInput) {

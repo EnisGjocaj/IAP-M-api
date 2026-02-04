@@ -9,22 +9,35 @@ interface AuthRequest extends Request {
 }
 
 export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) => {
-  console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
+  const debugAuth = process.env.DEBUG_AUTH === 'true';
+  if (debugAuth) {
+    // eslint-disable-next-line no-console
+    console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
+  }
   const token = req.headers.authorization?.split(' ')[1]; 
-  console.log('Auth Header:', req.headers.authorization);
-  console.log('Token:', token);
+  if (debugAuth) {
+    // eslint-disable-next-line no-console
+    console.log('Auth Header:', req.headers.authorization);
+    // eslint-disable-next-line no-console
+    console.log('Token:', token);
+  }
 
   if (token) {
     jwt.verify(token, process.env.JWT_SECRET!, (err, user) => {
       if (err) {
-        console.log('JWT Verification Error:', err);
-        // Return more detailed error
+        if (debugAuth) {
+          // eslint-disable-next-line no-console
+          console.log('JWT Verification Error:', err);
+        }
         return res.status(403).json({ 
           message: 'Token verification failed',
           error: err.message 
         });
       }
-      console.log('Verified User:', user);
+      if (debugAuth) {
+        // eslint-disable-next-line no-console
+        console.log('Verified User:', user);
+      }
       req.user = user as { userId: number; role: string }; 
       next();
     });

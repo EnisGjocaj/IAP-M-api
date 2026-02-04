@@ -16,6 +16,18 @@ const upload = multer({
   },
 });
 
+materialsRouter.get('/admin', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const filterRaw = (req.query.filter as string | undefined) || 'all';
+    const filter = ['pending', 'approved', 'all'].includes(filterRaw) ? (filterRaw as any) : 'all';
+
+    const result = await materialsService.listAllMaterialsAdmin(filter);
+    return res.status(result.statusCode).json(result.message);
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
 materialsRouter.get('/', authenticateStudent, async (req, res) => {
   try {
     const userId = (req as any).user?.userId as number | undefined;
@@ -80,6 +92,49 @@ materialsRouter.post('/:id/submit-for-approval', authenticateStudent, async (req
     }
 
     const result = await materialsService.submitForApproval(userId, req.params.id);
+    return res.status(result.statusCode).json(result.message);
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+materialsRouter.put('/:id', authenticateJWT, async (req, res) => {
+  try {
+    const requester = (req as any).user as { userId?: number; role?: string } | undefined;
+    const userId = requester?.userId as number | undefined;
+    if (!userId) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    const { title, visibility, courseType, courseName, materialType } = req.body || {};
+
+    const result = await materialsService.updateMaterialMetadataScoped(
+      req.params.id,
+      { userId, role: requester?.role },
+      {
+        title,
+        visibility,
+        courseType,
+        courseName,
+        materialType,
+      }
+    );
+
+    return res.status(result.statusCode).json(result.message);
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+materialsRouter.delete('/:id', authenticateJWT, async (req, res) => {
+  try {
+    const requester = (req as any).user as { userId?: number; role?: string } | undefined;
+    const userId = requester?.userId as number | undefined;
+    if (!userId) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    const result = await materialsService.deleteMaterialScoped(req.params.id, { userId, role: requester?.role });
     return res.status(result.statusCode).json(result.message);
   } catch (error: any) {
     return res.status(500).json({ message: error.message });

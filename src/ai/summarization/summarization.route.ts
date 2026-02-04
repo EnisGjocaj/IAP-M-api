@@ -12,12 +12,19 @@ summarizationRouter.post('/', authenticateStudent, async (req, res) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const { materialIds, style } = req.body as {
+    const { materialIds, style, conversationId, saveConversation } = req.body as {
       materialIds?: number[];
       style?: 'bullet' | 'short' | 'detailed';
+      conversationId?: number;
+      saveConversation?: boolean;
     };
 
-    const result = await aiService.summarize(userId, { materialIds: materialIds || [], style });
+    const result = await aiService.summarize(userId, {
+      materialIds: materialIds || [],
+      style,
+      conversationId,
+      saveConversation: Boolean(saveConversation),
+    });
     return res.status(result.statusCode).json(result.message);
   } catch (error: any) {
     return res.status(500).json({ message: error.message });

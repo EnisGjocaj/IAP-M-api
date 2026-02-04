@@ -45,11 +45,8 @@ export class UserService {
         return user;
       });
 
-      const token = jwt.sign(
-        { userId: result.id, role: result.role, isStudent: result.isStudent },
-        process.env.JWT_SECRET!,
-        { expiresIn: '1h' }
-      );
+      const registerPayload = { userId: result.id, role: result.role, isStudent: result.isStudent };
+      const token = jwt.sign(registerPayload, process.env.JWT_SECRET!, { expiresIn: '1h' });
 
       return { 
         statusCode: 201, 
@@ -92,15 +89,13 @@ export class UserService {
         return { statusCode: 401, message: 'Invalid credentials' };
       }
 
-      const token = jwt.sign(
-        { 
-          userId: user.id, 
-          role: user.role,
-          isStudent: user.isStudent 
-        },
-        process.env.JWT_SECRET!,
-        { expiresIn: '1h' }
-      );
+      const loginPayload = {
+        userId: user.id,
+        role: user.role,
+        isStudent: user.isStudent,
+      };
+
+      const token = jwt.sign(loginPayload, process.env.JWT_SECRET!, { expiresIn: '1h' });
 
       const { password, ...userWithoutPassword } = user;
 

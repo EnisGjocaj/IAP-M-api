@@ -12,14 +12,16 @@ queryRouter.post('/', authenticateStudent, async (req, res) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    const { question, materialIds } = req.body as {
+    const { question, materialIds, conversationId } = req.body as {
       question?: string;
       materialIds?: number[];
+      conversationId?: number;
     };
 
     const result = await aiService.answerQuestion(userId, {
       question: question || '',
       materialIds: materialIds || [],
+      conversationId,
     });
     return res.status(result.statusCode).json(result.message);
   } catch (error: any) {

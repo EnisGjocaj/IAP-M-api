@@ -33,6 +33,7 @@ model User {
   aiMaterialsApproved  AiMaterial[] @relation("AiMaterialApprover")
   aiMaterialsRejected  AiMaterial[] @relation("AiMaterialRejector")
   aiQueryLogs          AiQueryLog[]
+  aiConversations      AiConversation[]
 }
 
 
@@ -369,6 +370,26 @@ enum AiMaterialIndexStatus {
   FAILED
 }
 
+enum AiConversationType {
+  CHAT
+  SUMMARY
+  EXAM
+}
+
+enum AiConversationRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model AiSettings {
+  id              Int      @id @default(1)
+  requireApproval Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model AiMaterial {
   id             Int      @id @default(autoincrement())
   ownerUserId    Int
@@ -411,6 +432,57 @@ model AiMaterial {
 
   chunks   AiMaterialChunk[]
   queryLogs AiQueryLog[]
+
+  conversations AiConversation[]
+}
+
+model AiConversation {
+  id        Int @id @default(autoincrement())
+  userId    Int
+  type      AiConversationType @default(CHAT)
+  title     String
+
+  materialIds Int[]
+  materialId  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User @relation(fields: [userId], references: [id])
+  material AiMaterial? @relation(fields: [materialId], references: [id], onDelete: SetNull)
+
+  messages AiConversationMessage[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AiConversationMessage {
+  id             Int @id @default(autoincrement())
+  conversationId Int
+  role           AiConversationRole
+  content        String @db.Text
+  createdAt      DateTime @default(now())
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  references   AiMessageReference[]
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+model AiMessageReference {
+  id        Int @id @default(autoincrement())
+  messageId Int
+  chunkId   Int
+  sourceNo  Int
+
+  message AiConversationMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  chunk   AiMaterialChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([chunkId])
+  @@unique([messageId, sourceNo])
 }
 
 model AiMaterialChunk {
@@ -421,11 +493,11 @@ model AiMaterialChunk {
 
   pageStart  Int?
   pageEnd    Int?
-  tokenCount Int?
 
   createdAt DateTime @default(now())
 
-  material   AiMaterial @relation(fields: [materialId], references: [id])
+  material   AiMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  messageReferences AiMessageReference[]
   embedding  AiChunkEmbedding?
   retrievals AiQueryRetrieval[]
 

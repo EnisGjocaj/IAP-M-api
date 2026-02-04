@@ -15,9 +15,16 @@ examEngineRouter.post('/generate', authenticateStudent, async (req, res) => {
     const { materialIds, count } = req.body as {
       materialIds?: number[];
       count?: number;
+      conversationId?: number;
+      saveConversation?: boolean;
     };
 
-    const result = await aiService.generateExam(userId, { materialIds: materialIds || [], count });
+    const result = await aiService.generateExam(userId, {
+      materialIds: materialIds || [],
+      count,
+      conversationId: (req.body as any)?.conversationId,
+      saveConversation: Boolean((req.body as any)?.saveConversation),
+    });
     return res.status(result.statusCode).json(result.message);
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
