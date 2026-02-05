@@ -8,6 +8,7 @@ import advisorRouter from './advisor/advisor.route';
 import settingsRouter from './settings/settings.route';
 import conversationsRouter from './conversations/conversations.route';
 import chunksRouter from './chunks/chunks.route';
+import statsRouter from './stats/stats.route';
 
 const aiRouter = express.Router();
 
@@ -19,5 +20,6 @@ aiRouter.use('/exam-engine', examEngineRouter);
 aiRouter.use('/advisor', advisorRouter);
 aiRouter.use('/conversations', conversationsRouter);
 aiRouter.use('/chunks', chunksRouter);
+aiRouter.use('/stats', statsRouter);
 
 export default aiRouter;
