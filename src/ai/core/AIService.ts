@@ -1,8 +1,10 @@
 import type { PrismaClient } from '@prisma/client';
+import { z } from 'zod';
 
 import type { EmbeddingProvider } from '../ingestion/embeddings/EmbeddingProvider';
 import type { VectorStore } from '../ingestion/vectorstore/VectorStore';
 import type { GroqProvider } from '../providers/groq/groq.provider';
+import { GroqJsonError } from '../providers/groq/groq.provider';
 import { assertMaterialsAccessible } from './materialAccess';
 
 export type AnswerQuestionInput = {
@@ -22,6 +24,8 @@ export type SummarizeInput = {
 export type ExamGenerateInput = {
   materialIds: number[];
   count?: number;
+  difficulty?: 'easy' | 'medium' | 'hard' | string;
+  examType?: string;
   conversationId?: number;
   saveConversation?: boolean;
 };
@@ -487,7 +491,10 @@ export class AIService {
     await assertMaterialsAccessible({ prisma: this.prisma, userId, materialIds: input.materialIds });
 
     const count = input.count ?? 5;
-    const queryText = `Generate ${count} exam questions with answers.`;
+    const difficulty = (input.difficulty || 'medium') as string;
+    const examType = String(input.examType || 'multiple-choice');
+
+    const queryText = `Generate ${count} exam questions with answers. Difficulty: ${difficulty}. Type: ${examType}.`;
     const { orderedChunks } = await this.retrieveTopChunks({
       materialIds: input.materialIds,
       queryText,
@@ -515,13 +522,176 @@ export class AIService {
 
     const sourcesBlock = this.buildSourcesBlock(numberedSources);
 
-    const exam = await this.groq.chat([
-      { role: 'system', content: this.systemPrompt() },
-      {
-        role: 'user',
-        content: `Task: ${queryText}\nReturn a numbered list with short model answers.\n\nApproved Sources:\n${sourcesBlock}`,
-      },
-    ]);
+    const wordCount = (s: string) =>
+      String(s || '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean).length;
+
+    const optionItemSchema = z.object({
+      key: z.enum(['A', 'B', 'C', 'D']),
+      text: z.string().min(1),
+    });
+
+    const optionsSchema = z
+      .preprocess((val) => {
+        if (val == null) return val;
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'object') {
+          const entries = Object.entries(val as Record<string, unknown>);
+          const mapped = entries
+            .map(([k, v]) => ({
+              key: String(k).trim().toUpperCase(),
+              text: String(v ?? '').trim(),
+            }))
+            .filter((o) => ['A', 'B', 'C', 'D'].includes(o.key) && o.text);
+
+          return mapped;
+        }
+
+        return val;
+      }, z.array(optionItemSchema).length(4))
+      .optional();
+
+    const questionSchema = z
+      .object({
+      id: z.number().int().positive(),
+      kind: z.enum(['mcq', 'text']),
+      prompt: z.string().min(1).max(200),
+      options: optionsSchema,
+      correctOption: z
+        .preprocess(
+          (v) => (typeof v === 'string' ? v.trim().toUpperCase() : v),
+          z.enum(['A', 'B', 'C', 'D'])
+        )
+        .optional(),
+      correctAnswer: z
+        .string()
+        .min(1)
+        .refine((v) => wordCount(v) <= 30, { message: 'correctAnswer must be <= 30 words' }),
+      explanation: z
+        .string()
+        .optional()
+        .refine((v) => !v || wordCount(v) <= 35, { message: 'explanation must be short' }),
+      keywords: z.array(z.string().min(1)).max(5).optional(),
+      points: z.number().int().min(1).max(10).default(1),
+      })
+      .superRefine((q, ctx) => {
+        if (q.kind === 'mcq') {
+          if (!q.options || q.options.length !== 4) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'mcq must include exactly 4 options (A-D)', path: ['options'] });
+          }
+          if (!q.correctOption) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'mcq must include correctOption', path: ['correctOption'] });
+          }
+        } else {
+          if (q.correctOption) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'text questions must not include correctOption', path: ['correctOption'] });
+          }
+        }
+      });
+
+    const formatInstruction =
+      examType === 'multiple-choice'
+        ? 'Use kind="mcq". Provide exactly 4 options (A-D) and correctOption.'
+        : 'Use kind="text". Provide a short correctAnswer and 1-5 keywords that should appear in a good student answer.';
+
+    const batchSize = 5;
+    const total = Math.max(1, Math.min(50, Number(count) || 5));
+
+    const compactRules =
+      'Compactness rules (STRICT):\n' +
+      '- prompt: max 200 characters\n' +
+      '- correctAnswer: max 30 words\n' +
+      '- explanation: max 1 sentence (optional)\n' +
+      '- keywords: max 5 items (optional; only for kind="text")\n';
+
+    const tokensPerQuestion = examType === 'multiple-choice' ? 240 : 280;
+    const computeMaxTokens = (take: number) => {
+      const base = 350;
+      const max = base + take * tokensPerQuestion;
+      return Math.max(800, Math.min(2000, max));
+    };
+
+    const allQuestions: Array<z.output<typeof questionSchema>> = [];
+
+    try {
+      for (let startId = 1; startId <= total; startId += batchSize) {
+        const take = Math.min(batchSize, total - startId + 1);
+
+        const batchSchema = z.object({
+          questions: z.array(questionSchema).length(take),
+        });
+
+        const batch = await this.groq.chatJson<z.output<typeof batchSchema>>(
+          [
+            { role: 'system', content: this.systemPrompt() },
+            {
+              role: 'user',
+              content:
+                `Task: Generate ${take} exam questions with answers. Difficulty: ${difficulty}. Type: ${examType}.\n` +
+                `You MUST return exactly ${take} questions.\n` +
+                `IDs must start at ${startId} and increment by 1.\n` +
+                `${compactRules}` +
+                `IMPORTANT: For mcq questions, options MUST be an array like: [{"key":"A","text":"..."},{"key":"B","text":"..."},{"key":"C","text":"..."},{"key":"D","text":"..."}]. Do NOT use an object map.\n` +
+                `Return JSON with the schema: { questions: Array<{id, kind, prompt, options?, correctOption?, correctAnswer, explanation?, keywords?, points}> }.\n` +
+                `${formatInstruction}\n` +
+                `Keep prompts student-friendly and based only on the approved sources.\n\nApproved Sources:\n${sourcesBlock}`,
+            },
+          ],
+          batchSchema,
+          { maxCompletionTokens: computeMaxTokens(take) }
+        );
+
+        allQuestions.push(...batch.questions);
+      }
+    } catch (e: any) {
+      if (e instanceof GroqJsonError && e.code === 'TRUNCATED') {
+        throw e;
+      }
+
+      return {
+        statusCode: 200,
+        message: {
+          exam:
+            'Gjenerimi i provimit dështoi për shkak të një përgjigjeje jo të plotë nga modeli AI. Ju lutem provoni përsëri (ose ulni numrin e pyetjeve).',
+          usedMaterialIds: input.materialIds,
+        },
+      };
+    }
+
+    const normalizedQuestions = allQuestions.slice(0, total).map((q, idx) => ({
+      ...q,
+      id: idx + 1,
+    }));
+
+    const finalExamSchema = z.object({
+      questions: z.array(questionSchema).length(total),
+    });
+
+    const examJson = finalExamSchema.parse({ questions: normalizedQuestions });
+
+    const examText = (() => {
+      const lines: string[] = [];
+      lines.push('QUESTIONS');
+      lines.push('');
+      for (const q of examJson.questions) {
+        lines.push(`${q.id}. ${q.prompt}`);
+        if (q.kind === 'mcq' && Array.isArray(q.options) && q.options.length > 0) {
+          for (const opt of q.options) {
+            lines.push(`${opt.key}) ${opt.text}`);
+          }
+        }
+        lines.push('');
+      }
+      lines.push('ANSWERS');
+      lines.push('');
+      for (const q of examJson.questions) {
+        const opt = q.kind === 'mcq' && q.correctOption ? `${q.correctOption} — ` : '';
+        lines.push(`${q.id}) ${opt}${q.correctAnswer}`);
+      }
+      return lines.join('\n').trim();
+    })();
 
     let conversationId: number | undefined = undefined;
     if (input.saveConversation) {
@@ -545,7 +715,7 @@ export class AIService {
         data: {
           conversationId,
           role: 'ASSISTANT',
-          content: exam,
+          content: examText,
         },
         select: { id: true },
       });
@@ -562,7 +732,8 @@ export class AIService {
     return {
       statusCode: 200,
       message: {
-        exam,
+        exam: examText,
+        examJson,
         usedMaterialIds: input.materialIds,
         conversationId,
         references: numberedSources.map((s) => ({
