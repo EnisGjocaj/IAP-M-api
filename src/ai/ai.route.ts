@@ -9,6 +9,7 @@ import settingsRouter from './settings/settings.route';
 import conversationsRouter from './conversations/conversations.route';
 import chunksRouter from './chunks/chunks.route';
 import statsRouter from './stats/stats.route';
+import adminDashboardRouter from './admin/adminDashboard.route';
 
 const aiRouter = express.Router();
 
@@ -21,5 +22,6 @@ aiRouter.use('/advisor', advisorRouter);
 aiRouter.use('/conversations', conversationsRouter);
 aiRouter.use('/chunks', chunksRouter);
 aiRouter.use('/stats', statsRouter);
+aiRouter.use('/admin', adminDashboardRouter);
 
 export default aiRouter;

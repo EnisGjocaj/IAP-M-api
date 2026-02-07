@@ -1,7 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
 
-export const authenticateStudent = (req: Request, res: Response, next: NextFunction) => {
+const prisma = new PrismaClient();
+
+export const authenticateStudent = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
 
@@ -20,6 +23,25 @@ export const authenticateStudent = (req: Request, res: Response, next: NextFunct
     }
 
     (req as any).user = decoded;
+
+    const url = req.originalUrl || req.url || '';
+    if (typeof url === 'string' && url.includes('/api/ai/settings/status')) {
+      return next();
+    }
+
+    const settings = await (prisma as any).aiSettings.upsert({
+      where: { id: 1 },
+      update: {},
+      create: { id: 1, requireApproval: true, aiEnabled: true },
+      select: { aiEnabled: true },
+    });
+
+    if (!settings?.aiEnabled) {
+      return res.status(403).json({
+        message: 'AI_DISABLED',
+        uiMessage: 'Shërbimi AI është përkohësisht i çaktivizuar.',
+      });
+    }
     next();
   } catch (error) {
     return res.status(401).json({ message: 'Invalid token' });

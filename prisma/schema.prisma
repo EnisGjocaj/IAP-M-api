@@ -385,6 +385,7 @@ enum AiConversationRole {
 model AiSettings {
   id              Int      @id @default(1)
   requireApproval Boolean  @default(true)
+  aiEnabled       Boolean  @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
