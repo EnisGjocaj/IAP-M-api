@@ -38,27 +38,56 @@ export class TrainingService {
   }
 
   // Create training
-  async createTraining(data: {
-    title: string;
-    description?: string;
-    category: string;
-    level: string;
-    instructor: string;
-    totalHours: number;
-    startDate: Date;
-    endDate: Date;
-    maxParticipants?: number;
-    isActive: boolean;
-  }) {
-    try {
-      const training = await prisma.training.create({
-        data: data,
-      });
-      return { statusCode: 201, message: training };
-    } catch (error: any) {
-      return { statusCode: 500, message: error.message };
+async createTraining(data: {
+  title: string;
+  description?: string;
+  category: string;
+  level: string;
+  instructor: string;
+  totalHours: number;
+  startDate: Date | string;
+  endDate: Date | string;
+  maxParticipants?: number;
+  isActive: boolean;
+}) {
+  try {
+    const startDate = new Date(data.startDate);
+    const endDate = new Date(data.endDate);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      throw new Error('Invalid startDate or endDate format');
     }
+
+    const training = await prisma.training.create({
+      data: {
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        level: data.level,
+        instructor: data.instructor,
+        totalHours: data.totalHours,
+        startDate,
+        endDate,
+        isActive: data.isActive,
+        ...(data.maxParticipants !== undefined && {
+          maxParticipants: data.maxParticipants
+        })
+      },
+    });
+
+    return { statusCode: 201, message: training };
+
+  } catch (error: any) {
+    console.error('CREATE TRAINING ERROR:', error);
+    return {
+      statusCode: 500,
+      message: error.message,
+      code: error.code,
+      meta: error.meta
+    };
   }
+}
+
 
   // Update training
   async updateTraining(id: string, data: {
